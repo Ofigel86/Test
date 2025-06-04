@@ -12,7 +12,7 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-bot = telebot.TeleBot("7780203660:AAGjrQKrNDVCWfq_ZaxbvVxjfeYrQi0FwWQ")
+bot = telebot.TeleBot("")
 plan = {"bumaga": "Бумага разлагается 1,5-2 месяца", "metal": "Метал разлагается 200-500 лет тебя любая банка переживёт дохляк :0", "otxod": "Разлагается от 3 недель до 6 месяцев", "steclo": "Стекло разлаается 1-2 млн лет оно тебя переживёт дохляк :0"}
 meme_mems = os.listdir("./img/meme")
 musor_musor = os.listdir("./img/musor")
