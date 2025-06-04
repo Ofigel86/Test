@@ -13,7 +13,6 @@ from telebot.types import (
 )
 
 # Инициализация бота
-bot = telebot.TeleBot("7780203660:AAGjrQKrNDVCWfq_ZaxbvVxjfeYrQi0FwWQ")
 
 # Переменные окружения
 meme_mems = os.listdir("./img/meme")
