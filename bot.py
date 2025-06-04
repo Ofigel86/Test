@@ -12,10 +12,10 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-
-
-
+bot = telebot.TeleBot("7780203660:AAGjrQKrNDVCWfq_ZaxbvVxjfeYrQi0FwWQ")
+plan = {"bumaga": "Бумага разлагается 1,5-2 месяца", "metal": "Метал разлагается 200-500 лет тебя любая банка переживёт дохляк :0", "otxod": "Разлагается от 3 недель до 6 месяцев", "steclo": "Стекло разлаается 1-2 млн лет оно тебя переживёт дохляк :0"}
 meme_mems = os.listdir("./img/meme")
+musor_musor = os.listdir("./img/musor")
 user = {}
 WEB_URL = "https://www.google.com"     
 
@@ -112,10 +112,11 @@ def send_memes(message):
     cat = worlds[1].lower()
     memes_dir = f"./img/{cat}"
     
+
     if not os.path.exists(memes_dir):
         bot.reply_to(message, f"Категория '{cat}' не найдена 😢")
         return
-
+    
     try:
         mem_files = os.listdir(memes_dir)
         if not mem_files:
@@ -135,6 +136,26 @@ def send_memes(message):
     except Exception as e:
         print(f"Ошибка отправки фото: {e}")
         bot.reply_to(message, "Не удалось отправить мем 😢")
+    
+
+@bot.message_handler(commands=['musor'])
+def send_musor(message):
+    img = random.choice(musor_musor)
+    text = plan[img]
+    with open(f"./img/musor/{random.choice()}","rb") as f:
+                bot.send_photo(message.chat.id, f)
+    
+
+
+    
+
+
+
+
+@bot.message_handler(commands=['pomogi'])
+def send_pomogi(message):
+    bot.reply_to(message, "Привет если ты это читаешь то ты должен узнать что НЕЛЬЗЯ ЗА МУРОСИТЬ, и всегда убирай за собой мусор,по моему мнению если люди будут масорить то мы будем дышать не чистым воздухом и  мы умрём (наверное).")
+
 
 @bot.message_handler(commands=['spam'])
 def send_spam(message):
