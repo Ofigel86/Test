@@ -12,21 +12,19 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-# Инициализация бота
 
-# Переменные окружения
+
+
 meme_mems = os.listdir("./img/meme")
 user = {}
 WEB_URL = "https://www.google.com"     
 
-# Функция для получения утки
 def get_duck_image_url():    
     url = 'https://random-d.uk/api/random'
     res = requests.get(url)
     data = res.json()
     return data['url']
 
-# Функция для получения аниме
 def get_tokio_anime():
     url = "https://kitsu.io/api/edge/anime?filter[text]=tokio"
     try:
@@ -34,7 +32,6 @@ def get_tokio_anime():
         response.raise_for_status()
         data = response.json()
         
-        # Извлекаем список аниме с постерами
         anime_list = []
         for item in data['data']:
             if 'posterImage' in item['attributes'] and 'original' in item['attributes']['posterImage']:
@@ -44,9 +41,6 @@ def get_tokio_anime():
         print(f"Ошибка при запросе к API: {e}")
         return []
 
-# ========================================
-# ОБРАБОТЧИКИ КОМАНД (должны быть после объявления bot)
-# ========================================
 
 @bot.message_handler(commands=['duck'])
 def duck(message):
@@ -108,7 +102,6 @@ def send_google(message):
 def web_app(message):
     bot.reply_to(message, f'Your message is "{message.web_app_data.data}"')
 
-# Исправленная функция /memes
 @bot.message_handler(commands=['memes'])
 def send_memes(message):
     worlds = message.text.split()
@@ -119,12 +112,10 @@ def send_memes(message):
     cat = worlds[1].lower()
     memes_dir = f"./img/{cat}"
     
-    # Проверяем существование директории
     if not os.path.exists(memes_dir):
         bot.reply_to(message, f"Категория '{cat}' не найдена 😢")
         return
-    
-    # Получаем список файлов
+
     try:
         mem_files = os.listdir(memes_dir)
         if not mem_files:
@@ -135,11 +126,9 @@ def send_memes(message):
         bot.reply_to(message, "Ошибка при доступе к мемам 😢")
         return
     
-    # Выбираем случайный файл
     random_file = random.choice(mem_files)
     file_path = os.path.join(memes_dir, random_file)
     
-    # Отправляем изображение
     try:
         with open(file_path, "rb") as f:
             bot.send_photo(message.chat.id, f)
