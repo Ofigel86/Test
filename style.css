@@ -1,0 +1,33 @@
+body {
+    
+    font-family: inherit; /* Семейство шрифтов */
+    font-size: 11px; /* Размер основного шрифта в <p></p>  */
+    background-color: #ffffff; /* Цвет фона веб-страницы */
+    color: #5988FF; /* Цвет основного текста */ 
+}
+h1 {
+    animation: color-change 3s infinite;
+    color: #FD98FB; /* Цвет заголовка */
+    font-size: 30px; /* Размер шрифта в пунктах */
+    font-family: inherit; /* Семейство шрифтов */
+
+}
+b {
+    color: #ff0000;
+
+
+
+}
+.fignya {
+    animation: color-change 3s infinite;
+    color: #df5900;
+}
+.img {
+    margin-left: 100
+
+}
+@keyframes color-change {
+  0%   { color: rgb(179, 255, 0); }
+  50%  { color: rgb(217, 0, 236); }
+  100% { color: rgb(247, 0, 123); }
+}
