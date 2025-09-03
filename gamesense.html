@@ -1,21 +1,1669 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="ru">
 <head>
-    <title>misssense</title>
-    <link rel="stylesheet" href="./style.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WebOS Deep Blue — Single-File Pro (HTTP/PE/DLL/EXE)</title>
+<style>
+  :root{
+    --bg:#081024; --bg-grad: radial-gradient(1200px 800px at 10% 10%, rgba(33,66,150,.18), transparent 60%),
+                       radial-gradient(900px 700px at 90% 80%, rgba(12,180,255,.12), transparent 60%);
+    --glass: rgba(18,24,46,0.35);
+    --panel: rgba(18,24,46,0.6);
+    --border: rgba(255,255,255,.08);
+    --text:#e8ecff; --muted:#aab4d6;
+    --accent:#5f8dff; --accent-2:#9fb7ff;
+    --shadow: 0 10px 40px rgba(0,0,0,.35);
+    --radius:14px; --blur:18px;
+    --danger:#ff5f56; --warn:#ffbd2e; --ok:#27c93f;
+    --glass-grad: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+  }
+  @media (prefers-reduced-motion: reduce){ :root{ --blur:10px; } }
+
+  *{ box-sizing:border-box; }
+  html,body,#desktop{ height:100%; margin:0; }
+  html,body{ background: var(--bg); background-image: var(--bg-grad); color:var(--text);
+    font: 14px/1.4 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body{ padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom)+0px) env(safe-area-inset-left); overflow:hidden; }
+
+  #wallpaper{ position:fixed; inset:0; width:100%; height:100%; display:block; z-index:0; }
+
+  #desktop{ position:relative; z-index:1; width:100%; height:100%; padding:20px 20px 98px; }
+  #icons{ display:grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap:18px; max-width:1100px; }
+  .icon{ display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+  .icon .glyph{
+    width:72px; height:72px; border-radius:16px; display:grid; place-items:center;
+    background: var(--glass); backdrop-filter: blur(var(--blur)); border:1px solid var(--border);
+    box-shadow: var(--shadow); font-size:30px;
+  }
+  .icon .label{ opacity:.95; text-align:center; font-weight:500; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+
+  #window-layer{ position:absolute; inset:0; }
+
+  .window{
+    position:absolute; background: var(--glass); background-image: var(--glass-grad);
+    backdrop-filter: blur(var(--blur)); border:1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow:hidden; transform: translateZ(0); opacity:0; animation: pop-in .18s ease-out forwards;
+  }
+  @keyframes pop-in{ from{ transform:scale(.98); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  .window.maximized{ inset:12px 12px 106px 12px !important; left:12px !important; top:12px !important; width:auto !important; height:auto !important; }
+  @media (max-width: 860px){ .window{ border-radius:16px; } .window.maximized{ inset:12px 12px 106px 12px !important; } }
+  .window.minimizing{ animation: mini .16s ease-in forwards; }
+  @keyframes mini{ to{ transform: scale(.96) translateY(8px); opacity:.0; } }
+
+  .titlebar{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    border-bottom:1px solid var(--border); cursor:grab; user-select:none;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,.06);
+  }
+  .titlebar .win-btns{ display:flex; gap:10px; align-items:center; }
+  .win-btn{ width:12px; height:12px; border-radius:50%; border:0; outline:0; cursor:pointer; }
+  .win-btn.close{ background:var(--danger); } .win-btn.min{ background:var(--warn); } .win-btn.max{ background:var(--ok); }
+  .title{ flex:1; text-align:center; opacity:.95; letter-spacing:.2px; font-weight:600; }
+
+  .content{ padding:12px; height: calc(100% - 44px); overflow:auto; }
+
+  .resizer{ position:absolute; background:transparent; }
+  .resizer.e{ right:0; top:12px; width:8px; height: calc(100% - 24px); cursor:ew-resize; }
+  .resizer.s{ bottom:0; left:12px; height:8px; width: calc(100% - 24px); cursor:ns-resize; }
+  .resizer.se{ right:0; bottom:0; width:16px; height:16px; cursor:nwse-resize; }
+
+  #dock{
+    position:fixed; left:0; right:0; bottom:0; padding: 10px 20px calc(env(safe-area-inset-bottom)+10px);
+    display:flex; justify-content:space-between; align-items:center; gap:12px; z-index:5; pointer-events:none;
+  }
+  .dock-panel{
+    pointer-events:auto; background: var(--glass); backdrop-filter: blur(var(--blur)); border:1px solid var(--border);
+    border-radius: 22px; box-shadow: var(--shadow); padding:8px 12px; display:flex; align-items:center; gap:8px; min-height:38px;
+  }
+  .launchers{ display:flex; gap:8px; }
+  .launcher{
+    width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-size:18px; cursor:pointer;
+    background: rgba(255,255,255,.06); border:1px solid var(--border); transition: transform .08s ease;
+  }
+  .launcher:hover{ transform: translateY(-2px) scale(1.05); }
+
+  .tasks{ display:flex; gap:6px; align-items:center; }
+  .task{
+    display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; cursor:pointer; transform-origin:bottom center;
+    transition: transform .06s ease, background .12s ease;
+  }
+  .task.active{ background: rgba(255,255,255,.09); }
+  .ico{ width:18px; height:18px; display:grid; place-items:center; font-size:14px; }
+  .clock{ opacity:.95; font-weight:600; letter-spacing:.2px; }
+
+  .toast-wrap{ position:fixed; right:16px; bottom:112px; z-index:6; display:flex; flex-direction:column; gap:8px; }
+  .toast{ background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(var(--blur));
+    border-radius:10px; padding:10px 12px; box-shadow: var(--shadow); }
+
+  input,select,button,textarea{
+    background: rgba(255,255,255,.06); color:var(--text); border:1px solid var(--border);
+    border-radius: 10px; padding:8px 10px; outline:none;
+  }
+  input[type="color"]{ padding:0; height:34px; }
+  button{ cursor:pointer; }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .col{ display:flex; flex-direction:column; gap:6px; }
+  .muted{ color:var(--muted); }
+  .grid{ display:grid; gap:10px; }
+  .card{ background: rgba(255,255,255,.04); border:1px solid var(--border); border-radius:12px; padding:10px; }
+  hr{ border:0; height:1px; background:var(--border); margin:10px 0; }
+
+  .meter{ height:10px; background: rgba(255,255,255,.06); border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+  .meter > span{ display:block; height:100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width:0%; transition: width .18s; }
+
+  pre.code{ background: rgba(0,0,0,.35); border:1px solid var(--border); border-radius:10px; padding:8px; overflow:auto; max-height:280px; }
+
+  /* Themes */
+  body.theme-neon{ --bg:#050214; --bg-grad: radial-gradient(1000px 700px at 10% 10%, rgba(0,255,209,.16), transparent 60%),
+                                 radial-gradient(900px 700px at 90% 80%, rgba(128,0,255,.14), transparent 60%);
+                   --accent:#00ffd1; --accent-2:#7bffea; --text:#eafffb; --muted:#a8e1d8; }
+  body.theme-pastel{ --bg:#121419; --bg-grad: radial-gradient(900px 700px at 10% 10%, rgba(255,128,191,.16), transparent 60%),
+                                  radial-gradient(900px 700px at 90% 80%, rgba(255,209,232,.12), transparent 60%);
+                     --accent:#ff80bf; --accent-2:#ffd1e8; --text:#fff2fb; --muted:#f0d0e4; }
+  body.theme-contrast{ --glass: rgba(0,0,0,.85); --panel: rgba(0,0,0,.95); --border: rgba(255,255,255,.5);
+                       --accent:#fff500; --text:#fff; --muted:#fff; --bg:#000; --bg-grad:none; }
+</style>
 </head>
-<body>
-    <h1 class="img">Запомни gamesense хуже Neverlose</h1>
-    <p>Запомни <b class="fignya">Weave</b> v2-2.5 хуже чем <b>onetap</b> v3 crack</p>
-    <h2>Но вейв может того тапать :0</h2>
-             <ol>
-                   <li>Weave v2 проигрывает onetap v3 по резольверу</li>
-                   <li>weave v2.5 есть Roll aa в отличии onetap v3</li>
-                   <li>Weave v2.5 анти аимы на уровне onetap v3</li>
-                   <li>Fatality может быть лучше onetap v3 по резольверу</li>
-                   <li>Фаталити может сравнится с Weave 2.5</li>
-             </ol>
-     <img src="https://i.ytimg.com/vi/xmeEb34QorE/maxresdefault.jpg" alt="Gamesense">
-     <iframe src="https://www.meteoblue.com/en/weather/widget/daily/ip_romania_675514?geoloc=fixed&days=4&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&precipunit=MILLIMETER&coloured=coloured&pictoicon=1&maxtemperature=1&mintemperature=1&windspeed=1&windgust=0&winddirection=1&uv=0&humidity=0&precipitation=1&precipitationprobability=1&spot=1&pressure=0&layout=light"  frameborder="0" scrolling="NO" allowtransparency="true" sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox" style="width: 216px; height: 420px"></iframe><div><!-- DO NOT REMOVE THIS LINK --><a href="https://www.meteoblue.com/en/weather/week/ip_romania_675514" target="_blank" rel="noopener">meteoblue</a></div>
+<body class="theme-deepblue">
+<canvas id="wallpaper"></canvas>
+<div id="desktop">
+  <div id="icons"></div>
+  <div id="window-layer"></div>
+</div>
+<div id="dock">
+  <div class="dock-panel" id="dock-left">
+    <div class="launchers" id="launchers"></div>
+    <div class="tasks" id="tasks"></div>
+  </div>
+  <div class="dock-panel"><div class="clock" id="clock"></div></div>
+</div>
+<div id="toasts" class="toast-wrap"></div>
+
+<script>
+(()=>{'use strict';
+
+/* ===== Utils / Theme / Toast ===== */
+const THEME_KEY='webos-theme';
+const isMobile=()=>innerWidth<860;
+const $=q=>document.querySelector(q);
+
+function loadTheme(){ try{ return JSON.parse(localStorage.getItem(THEME_KEY)||'{}'); }catch{ return {}; } }
+function applyTheme(s){
+  const body=document.body;
+  body.classList.remove('theme-deepblue','theme-neon','theme-pastel','theme-contrast');
+  body.classList.add('theme-'+(s.theme||'deepblue'));
+  if(typeof s.blur==='number') document.documentElement.style.setProperty('--blur', s.blur+'px');
+  if(s.accent) document.documentElement.style.setProperty('--accent', s.accent);
+  localStorage.setItem(THEME_KEY, JSON.stringify(s));
+}
+function reduceMotion(){ return matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function toast(text, timeout=2600){
+  const root=$('#toasts');
+  const el=document.createElement('div');
+  el.className='toast'; el.textContent=text; root.appendChild(el);
+  setTimeout(()=>el.remove(), timeout);
+}
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+const hex=(n,len=8)=>('0'.repeat(len)+n.toString(16).toUpperCase()).slice(-len);
+
+/* ===== Wallpaper ===== */
+const elWallpaper=$('#wallpaper');
+let stopWallpaper=()=>{};
+function setWallpaper(mode){
+  stopWallpaper();
+  const ctx=elWallpaper.getContext('2d');
+  let w=elWallpaper.width=innerWidth, h=elWallpaper.height=innerHeight;
+  const onResize=()=>{ w=elWallpaper.width=innerWidth; h=elWallpaper.height=innerHeight; };
+  addEventListener('resize', onResize);
+  let raf=0;
+  if(mode==='stars'){
+    const stars=Array.from({length:reduceMotion()?80:200}).map(()=>({ x:Math.random()*w, y:Math.random()*h, s:Math.random()*1.6+.2, sp:Math.random()*0.6+0.2 }));
+    const draw=()=>{ ctx.clearRect(0,0,w,h); ctx.fillStyle='#ffffff';
+      for(const st of stars){ ctx.globalAlpha=0.6+Math.sin((st.x+st.y+performance.now()/2000))*0.4; ctx.fillRect(st.x, st.y, st.s, st.s); st.y+=st.sp; if(st.y>h) st.y=0; }
+      ctx.globalAlpha=1;
+    };
+    const loop=()=>{ draw(); raf=requestAnimationFrame(loop); };
+    if(!reduceMotion()) loop(); else draw();
+  }else if(mode==='gradient'){
+    const draw=()=>{ const g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,'#0b1020'); g.addColorStop(1,'#112b5a'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); };
+    draw();
+  }else{
+    const blobs=Array.from({length:reduceMotion()?3:7}).map((_,i)=>({ x:Math.random()*w,y:Math.random()*h,r:220+Math.random()*260,
+      dx:(Math.random()-.5)*.35, dy:(Math.random()-.5)*.35, c:`hsla(${200+i*12}, 90%, ${35+i*3}%, .34)` }));
+    const draw=()=>{ ctx.clearRect(0,0,w,h);
+      for(const b of blobs){ const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r); g.addColorStop(0,b.c); g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
+        b.x+=b.dx; b.y+=b.dy; if(b.x<-b.r)b.x=w+b.r; if(b.x>w+b.r)b.x=-b.r; if(b.y<-b.r)b.y=h+b.r; if(b.y>h+b.r)b.y=-b.r; }
+    };
+    const loop=()=>{ draw(); raf=requestAnimationFrame(loop); };
+    if(!reduceMotion()) loop(); else draw();
+  }
+  stopWallpaper=()=>{ cancelAnimationFrame(raf); removeEventListener('resize', onResize); };
+}
+
+/* ===== EventBus ===== */
+class EventBus{
+  constructor(){ this.map=new Map(); }
+  on(e,fn){ const s=this.map.get(e)||new Set(); s.add(fn); this.map.set(e,s); return ()=>s.delete(fn); }
+  emit(e,p){ const s=this.map.get(e); if(!s) return; for(const f of Array.from(s)) f(p); }
+}
+
+/* ===== IndexedDB FS ===== */
+const DB='webos-db', STORE='files';
+function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,1);
+  r.onupgradeneeded=()=>{ const db=r.result; if(!db.objectStoreNames.contains(STORE)){ const os=db.createObjectStore(STORE,{keyPath:'path'}); os.createIndex('by_path','path',{unique:true}); os.put({path:'/',type:'dir'}); } };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+}); }
+const fs={
+  async list(dir='/'){ dir=dir.endsWith('/')?dir:dir+'/'; const db=await openDB(); return new Promise((res,rej)=>{
+    const t=db.transaction(STORE,'readonly'); const s=t.objectStore(STORE); const q=s.getAll();
+    q.onsuccess=()=>{ const all=q.result||[]; const out=all.filter(e=>e.path.startsWith(dir)&&e.path!==dir&&!e.path.slice(dir.length).includes('/')); res(out.sort((a,b)=>a.path.localeCompare(b.path))); };
+    q.onerror=()=>rej(q.error);
+  }); },
+  async readFile(path){ const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readonly'); const s=t.objectStore(STORE); const q=s.get(path); q.onsuccess=()=>res(q.result?.content); q.onerror=()=>rej(q.error); }); },
+  async writeFile(path, content, mime='text/plain'){ const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readwrite'); t.objectStore(STORE).put({ path, type:'file', content, mime }); t.oncomplete=()=>res(true); t.onerror=()=>rej(t.error); }); },
+  async mkdir(path){ if(!path.endsWith('/')) path+='/'; const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readwrite'); t.objectStore(STORE).put({ path, type:'dir' }); t.oncomplete=()=>res(true); t.onerror=()=>rej(t.error); }); },
+  async rm(path){ const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readwrite'); t.objectStore(STORE).delete(path); t.oncomplete=()=>res(true); t.onerror=()=>rej(t.error); }); },
+  async move(src,dst){ const c=await fs.readFile(src); if(c!==undefined){ await fs.writeFile(dst,c); await fs.rm(src); } },
+  async exportAll(){ const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readonly'); const s=t.objectStore(STORE); const q=s.getAll(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>rej(q.error); }); },
+  async importAll(list){ const db=await openDB(); return new Promise((res,rej)=>{ const t=db.transaction(STORE,'readwrite'); const s=t.objectStore(STORE); (list||[]).forEach(e=>s.put(e)); t.oncomplete=()=>res(true); t.onerror=()=>rej(t.error); }); }
+};
+
+/* ===== Window Manager ===== */
+class WindowManager{
+  constructor(layer){ this.layer=layer; this.z=100; this.map=new Map(); this.activeId=null; this.bus=new EventBus(); }
+  open(opts){
+    const prev=this.map.get(opts.id); if(prev) prev.close();
+    const el=document.createElement('div'); el.className='window';
+    el.style.left=(opts.position?.x?? 60+Math.random()*60)+'px';
+    el.style.top =(opts.position?.y?? 60+Math.random()*40)+'px';
+    el.style.width=(opts.size?.w?? 780)+'px'; el.style.height=(opts.size?.h?? 520)+'px';
+    el.style.zIndex=String(++this.z); el.setAttribute('role','dialog'); el.setAttribute('aria-label',opts.title);
+
+    const titlebar=document.createElement('div'); titlebar.className='titlebar';
+    const btns=document.createElement('div'); btns.className='win-btns';
+    const bClose=winBtn('close'), bMin=winBtn('min'), bMax=winBtn('max'); btns.append(bClose,bMin,bMax);
+    const title=document.createElement('div'); title.className='title'; title.textContent=opts.title;
+    titlebar.append(btns,title);
+
+    const content=document.createElement('div'); content.className='content';
+    const rE=div('resizer e'), rS=div('resizer s'), rSE=div('resizer se');
+    el.append(titlebar,content,rE,rS,rSE);
+    this.layer.appendChild(el);
+
+    const unmount=opts.mount(content) || (()=>{});
+
+    const handle={ id:opts.id, el, title:opts.title, minimized:false, maximized: !!opts.maximized || isMobile(),
+      focus:()=>this.focus(handle),
+      minimize:()=>this.minimize(handle,true),
+      maximize:(v)=>this.maximize(handle,v),
+      close:()=>{ try{unmount();}catch{} el.remove(); this.map.delete(opts.id); this.bus.emit('window/close',{id:opts.id}); }
+    };
+    if(handle.maximized) el.classList.add('maximized');
+
+    bClose.addEventListener('click',()=>handle.close());
+    bMin.addEventListener('click',()=>handle.minimize());
+    bMax.addEventListener('click',()=>handle.maximize());
+    titlebar.addEventListener('dblclick',()=>handle.maximize());
+
+    titlebar.addEventListener('pointerdown', ev=>{
+      if(handle.maximized) return;
+      if(ev.target?.setPointerCapture) ev.target.setPointerCapture(ev.pointerId);
+      let sx=ev.clientX, sy=ev.clientY; const rect=el.getBoundingClientRect(); let x=rect.left, y=rect.top;
+      const move=e=>{ const dx=e.clientX-sx, dy=e.clientY-sy;
+        el.style.left=clamp(x+dx, 0, innerWidth-rect.width)+'px';
+        el.style.top =clamp(y+dy, 0, innerHeight-rect.height-120)+'px';
+      };
+      const up=()=>{ removeEventListener('pointermove',move); removeEventListener('pointerup',up);
+        const r=el.getBoundingClientRect(), pad=12;
+        if(r.left<=pad){ el.style.left='12px'; el.style.top='12px'; el.style.width=(innerWidth/2-18)+'px'; el.style.height=(innerHeight-130)+'px'; }
+        else if(innerWidth-r.right<=pad){ el.style.left=(innerWidth/2+6)+'px'; el.style.top='12px'; el.style.width=(innerWidth/2-18)+'px'; el.style.height=(innerHeight-130)+'px'; }
+      };
+      addEventListener('pointermove',move); addEventListener('pointerup',up,{once:true});
+    });
+
+    const initResize=(dir,ev)=>{
+      if(handle.maximized) return;
+      if(ev.target?.setPointerCapture) ev.target.setPointerCapture(ev.pointerId);
+      const r=el.getBoundingClientRect(); let w=r.width, h=r.height, sx=ev.clientX, sy=ev.clientY;
+      const move=e=>{ const dx=e.clientX-sx, dy=e.clientY-sy;
+        if(dir.includes('e')) el.style.width = Math.max(420, w+dx)+'px';
+        if(dir.includes('s')) el.style.height= Math.max(280, h+dy)+'px';
+      };
+      const up=()=>{ removeEventListener('pointermove',move); removeEventListener('pointerup',up); };
+      addEventListener('pointermove',move); addEventListener('pointerup',up,{once:true});
+    };
+    rE.addEventListener('pointerdown',e=>initResize('e',e));
+    rS.addEventListener('pointerdown',e=>initResize('s',e));
+    rSE.addEventListener('pointerdown',e=>initResize('se',e));
+
+    el.addEventListener('pointerdown',()=>this.focus(handle));
+
+    this.map.set(opts.id,handle);
+    this.focus(handle);
+    this.bus.emit('window/open', handle);
+    return handle;
+
+    function winBtn(kind){ const b=document.createElement('button'); b.className='win-btn '+kind; return b; }
+    function div(cls){ const d=document.createElement('div'); d.className=cls; return d; }
+  }
+  focus(h){ h.el.style.zIndex=String(++this.z); this.activeId=h.id; this.bus.emit('window/focus',{id:h.id}); }
+  minimize(h,toggle=false){
+    if(toggle) h.minimized=!h.minimized; else h.minimized=true;
+    if(h.minimized){ h.el.classList.add('minimizing'); setTimeout(()=>{ h.el.classList.remove('minimizing'); h.el.style.display='none'; },140); }
+    else { h.el.style.display=''; }
+    this.bus.emit('window/update', h);
+  }
+  maximize(h, v){
+    h.maximized = v ?? !h.maximized;
+    h.el.classList.toggle('maximized', h.maximized);
+    this.bus.emit('window/update',h);
+  }
+  getWindows(){ return Array.from(this.map.values()); }
+}
+
+/* ===== Dock ===== */
+class Dock{
+  constructor(root, wm, openApp){
+    this.root = root; this.wm = wm; this.openApp=openApp;
+    this.tasksEl = $('#tasks'); this.launchersEl=$('#launchers'); this.clockEl=$('#clock');
+    this.tickClock(); setInterval(()=>this.tickClock(),1000);
+    const redraw=()=>this.render();
+    wm.bus.on('window/open',redraw);
+    wm.bus.on('window/update',redraw);
+    wm.bus.on('window/focus',redraw);
+    wm.bus.on('window/close',redraw);
+    this.render(); this.initMagnify();
+  }
+  tickClock(){ const d=new Date(); const pad=n=>String(n).padStart(2,'0'); this.clockEl.textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+  setLaunchers(list){
+    this.launchersEl.innerHTML='';
+    for(const a of list){
+      const el=document.createElement('div');
+      el.className='launcher'; el.title=a.name; el.textContent=a.icon;
+      el.addEventListener('click',()=>this.openApp(a.id));
+      this.launchersEl.appendChild(el);
+    }
+  }
+  render(){
+    const wins=this.wm.getWindows(); this.tasksEl.innerHTML='';
+    for(const w of wins){
+      const el=document.createElement('div'); el.className='task'+(w.id===this.wm.activeId?' active':'');
+      const ico=document.createElement('div'); ico.className='ico'; ico.textContent='🗔';
+      const lb=document.createElement('div'); lb.textContent=w.title;
+      el.append(ico,lb);
+      el.addEventListener('click',()=>{ if(w.minimized){ w.minimize(false); w.focus(); } else w.minimize(true); });
+      this.tasksEl.appendChild(el);
+    }
+  }
+  initMagnify(){
+    const panel=$('#dock-left');
+    const scaleFor=(x,el)=>{ const r=el.getBoundingClientRect(); const cx=r.left+r.width/2; const dist=Math.abs(cx-x); const s=clamp(1.6 - dist/220, 1, 1.6); el.style.transform=`scale(${s})`; };
+    const onMove=e=>{ const x=e.clientX; for(const el of this.tasksEl.children) scaleFor(x, el); for(const el of this.launchersEl.children) scaleFor(x, el); };
+    panel.addEventListener('mousemove', onMove);
+    panel.addEventListener('mouseleave', ()=>{ for(const el of this.tasksEl.children) el.style.transform=''; for(const el of this.launchersEl.children) el.style.transform=''; });
+  }
+}
+
+/* ===== AppHost + system ===== */
+class AppHost{
+  constructor(openFn, system){ this.defs=new Map(); this.openFn=openFn; this.system=system; }
+  register(def){ this.defs.set(def.id,def); }
+  list(){ return Array.from(this.defs.values()); }
+  open(id, params){
+    const def=this.defs.get(id); if(!def) throw new Error('App not found: '+id);
+    const themeState=loadTheme();
+    const ctx={ fs, storage:localStorage, theme:{ get:()=>themeState, set:s=>applyTheme(s) }, openApp:(i,p)=>this.open(i,p), toast, params, platformInfo:{ isMobile: isMobile(), ua:navigator.userAgent }, system:this.system };
+    const mount=container=>def.mount(container, ctx);
+    return this.openFn({ id:def.id, title:def.name, size:def.initialSize||{w:760,h:520}, mount });
+  }
+}
+
+/* ===== System metrics ===== */
+const system={ fps:0, load:0, mem:{ usedMB:null, limitMB:null }, domNodes:0,
+  getWindows:()=>wm.getWindows(), focus:(id)=>findW(id)?.focus(), minimize:(id)=>findW(id)?.minimize(),
+  maximize:(id)=>findW(id)?.maximize(), close:(id)=>findW(id)?.close(), bus:null
+};
+function findW(id){ return wm.getWindows().find(x=>x.id===id); }
+function startMetrics(){
+  let frames=0, lastSec=performance.now();
+  function tick(ts){ frames++; if(ts-lastSec>=1000){ system.fps=Math.round(frames*1000/(ts-lastSec)); frames=0; lastSec=ts; } requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+  let expected=performance.now()+500;
+  setInterval(()=>{ const now=performance.now(); const lag=Math.max(0, now-expected); expected=now+500; system.load=Math.round(clamp(lag/200, 0, 1)*100); }, 500);
+  if(performance && performance.memory){
+    setInterval(()=>{ const m=performance.memory; system.mem.usedMB = Math.round(m.usedJSHeapSize/1024/1024); system.mem.limitMB = Math.round(m.jsHeapSizeLimit/1024/1024); }, 1000);
+  }
+  setInterval(()=>{ system.domNodes = document.getElementsByTagName('*').length; }, 1000);
+}
+
+/* ===== Apps ===== */
+
+const PIPED_DEFAULTS=['https://piped.video','https://piped.mha.fi','https://piped.lunar.icu'];
+
+/* About */
+const AppAbout={ id:'about', name:'О системе', icon:'ℹ️', initialSize:{w:640,h:540},
+  mount(container){
+    container.innerHTML=`
+      <h2>WebOS Deep Blue</h2>
+      <p>Стеклянная веб‑ОС: окна, док, темы, живые обои. Кликаешь по иконке — окно открывается.</p>
+      <div class="grid" style="grid-template-columns:1fr 1fr;">
+        <div class="col card">
+          <strong>Приложения</strong>
+          <ul>
+            <li>YouTube (поиск, IFrame, очередь, SponsorBlock)</li>
+            <li>Файлы, Редактор, Галерея, Аудио, Paint</li>
+            <li>Заметки, Настройки, Диспетчер задач</li>
+            <li>Отладчик сайтов, HTTP Debugger</li>
+            <li>PE/DLL/EXE Inspector, EXE Runner (DOS)</li>
+          </ul>
+        </div>
+        <div class="col card">
+          <strong>Важно</strong>
+          <ul>
+            <li>YouTube/HTTP — через http/https (не file://)</li>
+            <li>Windows .exe/.dll нельзя запускать в браузере (безопасность). Доступен анализ PE и запуск DOS .exe</li>
+            <li>Двойной клик по заголовку окна — развернуть; перетягивание к краям — снап 1/2 экрана</li>
+          </ul>
+        </div>
+      </div>
+      <hr/>
+      <div class="muted">v0.6 single-file demo</div>
+    `;
+    return ()=>{};
+  }
+};
+
+/* Settings */
+const AppSettings={ id:'settings', name:'Настройки', icon:'⚙️', initialSize:{w:600,h:540},
+  mount(container){
+    const st=Object.assign({ theme:'deepblue', blur:18, accent:'#5f8dff', wallpaper:'aurora' }, loadTheme());
+    container.innerHTML=`
+      <h2>Настройки</h2>
+      <div class="grid" style="grid-template-columns:1fr 1fr;">
+        <div class="col card">
+          <label>Тема
+            <select id="theme">
+              <option value="deepblue">Deep Blue</option>
+              <option value="neon">Neon</option>
+              <option value="pastel">Pastel</option>
+              <option value="contrast">High Contrast</option>
+            </select>
+          </label>
+          <label>Размытие
+            <input type="range" id="blur" min="0" max="30" step="1"/>
+          </label>
+          <label>Акцентный цвет
+            <input type="color" id="accent"/>
+          </label>
+        </div>
+        <div class="col card">
+          <label>Обои
+            <select id="wallpaper">
+              <option value="aurora">Aurora</option>
+              <option value="stars">Stars</option>
+              <option value="gradient">Gradient</option>
+            </select>
+          </label>
+          <label>Piped инстанс
+            <select id="piped"></select>
+          </label>
+          <button id="save">Сохранить</button>
+        </div>
+      </div>
+    `;
+    const theme=$('#theme'), blur=$('#blur'), accent=$('#accent'), wp=$('#wallpaper'), piped=$('#piped');
+    theme.value=st.theme; blur.value=String(st.blur||18); accent.value=st.accent||'#5f8dff'; wp.value=st.wallpaper||'aurora';
+    piped.innerHTML=PIPED_DEFAULTS.map(p=>`<option value="${p}" ${st.pipedBase===p?'selected':''}>${p}</option>`).join('');
+    $('#save').addEventListener('click',()=>{ const s={ theme:theme.value, blur:Number(blur.value), accent:accent.value, wallpaper: wp.value, pipedBase:piped.value };
+      applyTheme(s); setWallpaper(wp.value); toast('Готово: тема, обои, акцент');
+    });
+    return ()=>{};
+  }
+};
+
+/* Notes */
+const AppNotes={ id:'notes', name:'Заметки', icon:'📝', initialSize:{w:720,h:540},
+  mount(container){
+    const KEY='notes-index', uid=()=>Math.random().toString(36).slice(2,9);
+    let notes=[]; try{ notes=JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{}
+    let current=null;
+    const wrap=div(); wrap.style.display='grid'; wrap.style.gridTemplateColumns='240px 1fr'; wrap.style.gap='12px';
+    const list=div(); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='6px';
+    const panel=div(); wrap.append(list,panel); container.appendChild(wrap);
+    const saveIdx=()=>localStorage.setItem(KEY, JSON.stringify(notes));
+    const open=n=>{ current=n; panel.innerHTML='';
+      const t=input(); t.value=n.title;
+      const ta=textarea(); ta.value=n.body; ta.style.height='360px';
+      const row=rowDiv(); const bSave=button('Сохранить'), bDel=button('Удалить');
+      row.append(bSave,bDel); panel.append(t,ta,row);
+      bSave.onclick=()=>{ current.title=t.value||'Без названия'; current.body=ta.value; current.updated=Date.now(); notes=notes.map(x=>x.id===current.id?current:x); saveIdx(); toast('Сохранено'); };
+      bDel.onclick=()=>{ notes=notes.filter(x=>x.id!==current.id); saveIdx(); current=null; panel.innerHTML=''; renderList(); };
+    };
+    const renderList=()=>{ list.innerHTML=''; const bNew=button('Новая заметка'); bNew.onclick=()=>{ const n={id:uid(),title:'Без названия',body:'',updated:Date.now()}; notes.unshift(n); saveIdx(); renderList(); open(n); };
+      list.append(bNew); for(const n of notes){ const it=div(); it.style.padding='6px 8px'; it.style.borderRadius='8px'; it.style.cursor='pointer'; it.textContent=n.title; it.onclick=()=>open(n); list.append(it); } };
+    renderList(); if(notes[0]) open(notes[0]);
+    return ()=>{};
+    function div(){ return document.createElement('div'); }
+    function input(){ return document.createElement('input'); }
+    function textarea(){ return document.createElement('textarea'); }
+    function button(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+    function rowDiv(){ const d=div(); d.className='row'; return d; }
+  }
+};
+
+/* Files */
+const AppFiles={ id:'files', name:'Файлы', icon:'📁', initialSize:{w:880,h:600},
+  mount(container,ctx){
+    const CWD={ path:'/home/' }; ensureInit();
+    const top=row(); const btnNew=btn('Создать файл'), btnFolder=btn('Папка'), btnImp=btn('Импорт JSON'), btnExp=btn('Экспорт JSON'), btnUp=btn('⬆ вверх');
+    const pathLabel=span(CWD.path); top.append(btnNew,btnFolder,btnImp,btnExp,btnUp, pathLabel); container.appendChild(top);
+    const gridEl=document.createElement('div'); gridEl.style.display='grid'; gridEl.style.gridTemplateColumns='1fr auto'; gridEl.style.gap='8px'; container.appendChild(gridEl);
+
+    btnNew.onclick=async()=>{ const name=prompt('Имя файла:','new.txt'); if(!name) return; await fs.writeFile(CWD.path+name,''); render(); };
+    btnFolder.onclick=async()=>{ const name=prompt('Имя папки:','images'); if(!name) return; await fs.mkdir(CWD.path+name+'/'); render(); };
+    btnImp.onclick=async()=>{ const inp=fileInput('.json'); inp.onchange=async()=>{ const f=inp.files?.[0]; if(!f) return; const text=await f.text(); const entries=JSON.parse(text); await fs.importAll(entries); toast('Импортировано'); render(); }; inp.click(); };
+    btnExp.onclick=async()=>{ const all=await fs.exportAll(); const blob=new Blob([JSON.stringify(all,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='files-export.json'; a.click(); URL.revokeObjectURL(a.href); };
+    btnUp.onclick=()=>{ if(CWD.path==='/'||CWD.path==='/home/') return; const seg=CWD.path.replace(/\/$/,'').split('/'); seg.pop(); CWD.path=seg.join('/')+'/'; pathLabel.textContent=CWD.path; render(); };
+
+    const importBar=row(); const importImg=btn('Импорт картинок'), importAud=btn('Импорт аудио');
+    importBar.append(importImg, importAud); container.appendChild(importBar);
+    importImg.onclick=()=>pickAndStore(['image/*'], '/home/images/'); importAud.onclick=()=>pickAndStore(['audio/*'], '/home/music/');
+
+    async function pickAndStore(accept, folder){
+      await fs.mkdir(folder).catch(()=>{});
+      const inp=fileInput(accept.join(',')); inp.multiple=true;
+      inp.onchange=async()=>{ const files=[...inp.files||[]]; for(const f of files){ const ext=(f.name.split('.').pop()||'').toLowerCase(); const path=folder+f.name; const data=await readAsDataURL(f); await fs.writeFile(path, data, f.type||mimeByExt(ext)); } toast('Импорт завершён'); render(); };
+      inp.click();
+    }
+
+    async function render(){
+      const items=await fs.list(CWD.path); gridEl.innerHTML='';
+      for(const it of items){
+        const name=it.path.replace(CWD.path,''); const rowEl=document.createElement('div'); rowEl.style.display='contents';
+        const cell=document.createElement('div'); cell.textContent=name; cell.style.padding='6px 8px'; cell.style.borderRadius='8px'; cell.style.cursor='pointer';
+        const actions=document.createElement('div'); actions.className='row';
+        const bOpen=btn('Открыть'), bRen=btn('Переимен.'), bDel=btn('Удалить');
+        actions.append(bOpen,bRen,bDel);
+        if(it.type==='dir'){ cell.textContent='📂 '+name; cell.onclick=()=>{ CWD.path=it.path; pathLabel.textContent=CWD.path; render(); }; bOpen.textContent='Открыть'; bOpen.onclick=()=>cell.onclick(); }
+        else{ bOpen.onclick=()=>openWith(it); }
+        bRen.onclick=async()=>{ const nn=prompt('Новое имя:', name); if(!nn||nn===name) return; await fs.move(it.path, CWD.path+nn); render(); };
+        bDel.onclick=async()=>{ await fs.rm(it.path); render(); };
+        gridEl.append(cell, actions);
+      }
+    }
+
+    function openWith(it){
+      const ext=(it.path.split('.').pop()||'').toLowerCase();
+      if(/^png|jpe?g|gif|webp|bmp|svg$/.test(ext)||/^image\//.test(it.mime||'')) ctx.openApp('gallery', { open: it.path });
+      else if(/^mp3|m4a|aac|ogg|wav|flac$/.test(ext)||/^audio\//.test(it.mime||'')) ctx.openApp('audio', { focus: it.path });
+      else if(/^(exe|dll)$/.test(ext)) ctx.openApp('pe', { path: it.path });
+      else ctx.openApp('editor', { path: it.path });
+    }
+    function ensureInit(){ fs.mkdir('/home/').catch(()=>{}); fs.mkdir('/home/images/').catch(()=>{}); fs.mkdir('/home/music/').catch(()=>{}); }
+    render();
+
+    return ()=>{};
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+    function span(t){ const s=document.createElement('span'); s.textContent=t; s.style.marginLeft='auto'; s.className='muted'; return s; }
+    function fileInput(accept){ const i=document.createElement('input'); i.type='file'; if(accept) i.accept=accept; return i; }
+    function readAsDataURL(file){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); }); }
+    function mimeByExt(ext){ return ({txt:'text/plain',md:'text/markdown',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',exe:'application/x-msdownload',dll:'application/x-msdownload'})[ext]||'application/octet-stream'; }
+  }
+};
+
+/* Editor */
+const AppEditor={ id:'editor', name:'Редактор', icon:'✏️', initialSize:{w:760,h:600},
+  async mount(container,ctx){
+    const path=ctx.params?.path || '/home/untitled.txt';
+    const top=row(); const nameInput=input(); nameInput.value=path; nameInput.style.flex='1';
+    const bOpen=btn('Открыть'), bSave=btn('Сохранить'), bSaveAs=btn('Сохранить как');
+    top.append(nameInput,bOpen,bSave,bSaveAs); container.appendChild(top);
+    const ta=document.createElement('textarea'); ta.style.width='100%'; ta.style.height='440px'; container.appendChild(ta);
+    const data=await fs.readFile(path); ta.value=(typeof data==='string'?data:'')||'';
+    bOpen.onclick=async()=>{ const p=prompt('Путь файла:', nameInput.value)||nameInput.value; nameInput.value=p; const d=await fs.readFile(p); ta.value=d||''; };
+    bSave.onclick=async()=>{ await fs.writeFile(nameInput.value, ta.value, 'text/plain'); toast('Сохранено'); };
+    bSaveAs.onclick=async()=>{ const p=prompt('Сохранить как:', nameInput.value)||nameInput.value; await fs.writeFile(p, ta.value, 'text/plain'); nameInput.value=p; toast('Сохранено'); };
+    return ()=>{};
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+    function input(){ return document.createElement('input'); }
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+  }
+};
+
+/* Gallery */
+const AppGallery={ id:'gallery', name:'Галерея', icon:'🖼️', initialSize:{w:940,h:640},
+  async mount(container,ctx){
+    const top=row(); const imp=btn('Импорт изображений'), refresh=btn('Обновить'); top.append(imp,refresh); container.appendChild(top);
+    const grid=document.createElement('div'); grid.style.display='grid'; grid.style.gridTemplateColumns='repeat(auto-fill, minmax(160px,1fr))'; grid.style.gap='10px'; container.appendChild(grid);
+    imp.onclick=()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.multiple=true; inp.onchange=async()=>{ for(const f of [...inp.files||[]]){ const d=await readAsDataURL(f); await fs.writeFile('/home/images/'+f.name, d, f.type||'image/*'); } toast('Импортировано'); render(); }; inp.click(); };
+    refresh.onclick=()=>render();
+    async function render(){
+      grid.innerHTML=''; const list=[...(await fs.list('/home/')), ...(await fs.list('/home/images/'))].filter(x=>x.type==='file' && ((x.mime||'').startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(x.path)));
+      for(const it of list){
+        const card=document.createElement('div'); card.style.background='rgba(255,255,255,.06)'; card.style.border='1px solid var(--border)'; card.style.borderRadius='12px'; card.style.overflow='hidden';
+        card.innerHTML=`<div style="aspect-ratio:16/10;background:#0b1020;display:grid;place-items:center;"><img src="${await fs.readFile(it.path)}" alt="" style="max-width:100%; max-height:100%"/></div><div style="padding:8px; font-size:12px; opacity:.85">${it.path.split('/').pop()}</div>`;
+        grid.appendChild(card); card.onclick=()=>viewer(it.path);
+      }
+      if(ctx.params?.open){ const match=list.find(x=>x.path===ctx.params.open); if(match) viewer(match.path); }
+    }
+    function viewer(path){
+      const d=document.createElement('div'); Object.assign(d.style,{ position:'fixed', inset:'0', background:'rgba(0,0,0,.6)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9999 });
+      const box=document.createElement('div'); Object.assign(box.style,{ background:'var(--glass)', border:'1px solid var(--border)', borderRadius:'12px', padding:'10px', boxShadow:'var(--shadow)' });
+      const img=document.createElement('img'); img.src=''; img.style.maxWidth='82vw'; img.style.maxHeight='82vh';
+      fs.readFile(path).then(src=>img.src=src||'');
+      const row=document.createElement('div'); row.className='row'; row.style.marginTop='8px';
+      const bDel=btn('Удалить'), bClose=btn('Закрыть'); row.append(bDel,bClose);
+      box.append(img,row); d.appendChild(box); document.body.appendChild(d);
+      bClose.onclick=()=>d.remove(); bDel.onclick=async()=>{ await fs.rm(path); d.remove(); toast('Удалено'); render(); };
+    }
+    render(); return ()=>{};
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+    function readAsDataURL(file){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); }); }
+  }
+};
+
+/* Audio Player */
+const AppAudio={ id:'audio', name:'Аудио', icon:'🎵', initialSize:{w:880,h:600},
+  async mount(container,ctx){
+    const wrap=document.createElement('div'); wrap.style.display='grid'; wrap.style.gridTemplateColumns='1fr 1fr'; wrap.style.gap='12px'; container.appendChild(wrap);
+    const left=document.createElement('div'), right=document.createElement('div'); wrap.append(left,right);
+    const controls=row(); const btnPrev=button('⏮'), btnPlay=button('⏯'), btnNext=button('⏭'), btnImport=button('Импорт аудио'); controls.append(btnPrev,btnPlay,btnNext,btnImport);
+    const listEl=document.createElement('div'); listEl.style.display='flex'; listEl.style.flexDirection='column'; listEl.style.gap='6px';
+    left.append(controls, document.createElement('hr'), listEl);
+    const now=document.createElement('div'); now.className='muted'; right.append(now);
+    const audio=new Audio(); audio.preload='metadata';
+    let queue=[], idx=-1;
+
+    btnImport.onclick=()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='audio/*'; inp.multiple=true; inp.onchange=async()=>{ for(const f of [...inp.files||[]]){ const d=await readAsDataURL(f); await fs.writeFile('/home/music/'+f.name, d, f.type||'audio/*'); } toast('Добавлено'); render(); }; inp.click(); };
+    btnPrev.onclick=()=>playAt((idx-1+queue.length)%queue.length);
+    btnNext.onclick=()=>playAt((idx+1)%queue.length);
+    btnPlay.onclick=()=>{ if(audio.paused) audio.play(); else audio.pause(); };
+
+    async function render(){
+      const files=[...(await fs.list('/home/music/')), ...(await fs.list('/home/'))].filter(x=>x.type==='file' && ((x.mime||'').startsWith('audio/') || /\.(mp3|m4a|aac|ogg|wav|flac)$/i.test(x.path)));
+      queue=files.map(f=>f.path); listEl.innerHTML='';
+      for(const p of queue){
+        const row=document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.alignItems='center';
+        const name=document.createElement('div'); name.textContent=p.split('/').pop(); const b=button('▶'); b.onclick=()=>playAt(queue.indexOf(p)); row.append(name,b); listEl.append(row);
+      }
+      if(ctx.params?.focus){ const i=queue.indexOf(ctx.params.focus); if(i>=0) playAt(i); }
+    }
+    function playAt(i){
+      if(!queue.length) return; idx=(i+queue.length)%queue.length; const path=queue[idx];
+      fs.readFile(path).then(src=>{ audio.src=src; audio.play(); now.textContent='▶ '+(path.split('/').pop()); navigator.mediaSession && setMS(path); });
+    }
+    function setMS(path){ try{
+      navigator.mediaSession.metadata=new MediaMetadata({ title: path.split('/').pop()||'Audio' });
+      navigator.mediaSession.setActionHandler('nexttrack',()=>btnNext.click());
+      navigator.mediaSession.setActionHandler('previoustrack',()=>btnPrev.click());
+      navigator.mediaSession.setActionHandler('play',()=>audio.play());
+      navigator.mediaSession.setActionHandler('pause',()=>audio.pause());
+    }catch{} }
+    function button(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+    function readAsDataURL(file){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(file); }); }
+
+    render(); return ()=>{ audio.pause(); };
+  }
+};
+
+/* Paint */
+const AppPaint={ id:'paint', name:'Paint', icon:'🎨', initialSize:{w:880,h:600},
+  mount(container){
+    const bar=row(); const color=input('color'); color.value='#ffffff'; const size=input('range'); size.min='1'; size.max='40'; size.value='8';
+    const clear=btn('Очистить'), save=btn('Сохранить PNG');
+    bar.append(document.createTextNode('Цвет:'),color,document.createTextNode('Размер:'),size,clear,save);
+    container.appendChild(bar);
+    const canvas=document.createElement('canvas'); Object.assign(canvas.style,{ width:'100%', height:'calc(100% - 60px)', border:'1px solid var(--border)', borderRadius:'10px' });
+    container.appendChild(canvas);
+    let ctx2=canvas.getContext('2d');
+    function fit(){ const dpr=window.devicePixelRatio||1; const w=canvas.clientWidth, h=canvas.clientHeight; canvas.width=w*dpr; canvas.height=h*dpr; ctx2.setTransform(dpr,0,0,dpr,0,0); ctx2.fillStyle='#0b1020'; ctx2.fillRect(0,0,w,h); }
+    setTimeout(fit, 50); addEventListener('resize',()=>setTimeout(fit,100));
+    let drawing=false, last=null;
+    canvas.addEventListener('pointerdown',e=>{ drawing=true; last=[e.offsetX,e.offsetY]; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointermove',e=>{ if(!drawing) return; ctx2.strokeStyle=color.value; ctx2.lineWidth=Number(size.value); ctx2.lineCap='round'; ctx2.beginPath(); ctx2.moveTo(last[0],last[1]); ctx2.lineTo(e.offsetX,e.offsetY); ctx2.stroke(); last=[e.offsetX,e.offsetY]; });
+    addEventListener('pointerup',()=>drawing=false);
+    clear.onclick=()=>{ fit(); };
+    save.onclick=async()=>{ const name='paint-'+Date.now()+'.png'; const data=canvas.toDataURL('image/png'); await fs.writeFile('/home/images/'+name, data, 'image/png'); toast('Сохранено: /home/images/'+name); };
+    return ()=>{};
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+    function input(t){ const i=document.createElement('input'); if(t) i.type=t; return i; }
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+  }
+};
+
+/* Task Manager */
+const AppTaskMgr={ id:'taskmgr', name:'Диспетчер задач', icon:'📊', initialSize:{w:980,h:660},
+  mount(container,ctx){
+    container.innerHTML=`
+      <h2>Диспетчер задач</h2>
+      <div class="grid" style="grid-template-columns: 1fr 2fr;">
+        <div class="col card">
+          <div><b>FPS:</b> <span id="tm-fps">—</span></div>
+          <div class="meter"><span id="tm-fps-bar" style="width:0%"></span></div>
+          <div style="margin-top:8px;"><b>Нагрузка (примерно):</b> <span id="tm-load">—</span>%</div>
+          <div class="meter"><span id="tm-load-bar" style="width:0%"></span></div>
+          <div style="margin-top:8px;"><b>Память:</b> <span id="tm-mem">—</span></div>
+          <div style="margin-top:8px;"><b>DOM узлов:</b> <span id="tm-dom">—</span></div>
+          <hr/>
+          <div class="row">
+            <button id="tm-close-all">Закрыть все</button>
+            <button id="tm-refresh">Обновить</button>
+          </div>
+        </div>
+        <div class="col card">
+          <div class="row" style="justify-content:space-between;"><b>Окна</b> <span class="muted" id="tm-count"></span></div>
+          <div id="tm-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    `;
+    const list = container.querySelector('#tm-list');
+    const count = container.querySelector('#tm-count');
+    const fpsTxt = container.querySelector('#tm-fps');
+    const fpsBar = container.querySelector('#tm-fps-bar');
+    const loadTxt = container.querySelector('#tm-load');
+    const loadBar = container.querySelector('#tm-load-bar');
+    const memTxt = container.querySelector('#tm-mem');
+    const domTxt = container.querySelector('#tm-dom');
+
+    function renderList(){
+      const wins = ctx.system.getWindows();
+      count.textContent = `${wins.length}`;
+      list.innerHTML = '';
+      for(const w of wins){
+        const row=document.createElement('div');
+        row.style.display='grid'; row.style.gridTemplateColumns='1fr auto auto auto auto'; row.style.gap='8px'; row.style.alignItems='center';
+        const state = `${w.minimized?'min':''}${w.maximized? (w.minimized?' / ':'')+'max':''}` || 'normal';
+        const rect = w.el.getBoundingClientRect();
+        const info = document.createElement('div');
+        info.innerHTML = `<b>${w.title}</b> <span class="muted">#${w.id}</span><br/><span class="muted">${Math.round(rect.width)}x${Math.round(rect.height)} · z=${w.el.style.zIndex || '—'} · ${state}</span>`;
+        const bFocus=btn('Фокус'), bMin=btn(w.minimized?'Развернуть':'Свернуть'), bMax=btn(w.maximized?'Снять макс.':'Развернуть'), bClose=btn('Закрыть');
+        bFocus.onclick=()=>ctx.system.focus(w.id);
+        bMin.onclick=()=>ctx.system.minimize(w.id);
+        bMax.onclick=()=>ctx.system.maximize(w.id);
+        bClose.onclick=()=>ctx.system.close(w.id);
+        row.append(info, bFocus, bMin, bMax, bClose);
+        list.appendChild(row);
+      }
+    }
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+
+    container.querySelector('#tm-close-all').onclick = ()=>{ for(const w of ctx.system.getWindows().slice()){ try{ w.close(); }catch{} } };
+    container.querySelector('#tm-refresh').onclick = renderList;
+
+    const updMetrics=()=>{ fpsTxt.textContent = `${system.fps}`; fpsBar.style.width = `${clamp(system.fps/60,0,1)*100}%`;
+      loadTxt.textContent = `${system.load}`; loadBar.style.width = `${system.load}%`;
+      memTxt.textContent = (system.mem.usedMB? `${system.mem.usedMB} MB / ${system.mem.limitMB||'—'} MB` : 'н/д');
+      domTxt.textContent = `${system.domNodes}`;
+    };
+    const t = setInterval(updMetrics, 500); updMetrics();
+
+    const off1 = ctx.system.bus?.on?.('window/open', renderList);
+    const off2 = ctx.system.bus?.on?.('window/update', renderList);
+    const off3 = ctx.system.bus?.on?.('window/close', renderList);
+    renderList();
+
+    return ()=>{ clearInterval(t); off1&&off1(); off2&&off2(); off3&&off3(); };
+  }
+};
+
+/* Site Debugger */
+const AppDebugger={ id:'debugger', name:'Отладчик сайтов', icon:'🛠️', initialSize:{w:1100,h:720},
+  mount(container){
+    container.innerHTML = `
+      <h2>Отладчик сайтов</h2>
+      <div class="row" style="gap:8px;">
+        <input id="dbg-url" placeholder="https://example.com" style="flex:1" />
+        <button id="dbg-live">Live Preview</button>
+        <button id="dbg-safe">Safe Preview</button>
+        <button id="dbg-analyze">Анализ</button>
+        <button id="dbg-proxy">Proxy fetch</button>
+        <button id="dbg-clear">Очистить</button>
+      </div>
+      <div class="grid" style="grid-template-columns: 2fr 1fr; margin-top:10px; gap:10px;">
+        <div class="col card">
+          <div id="dbg-frame-wrap" style="border:1px solid var(--border); border-radius:12px; overflow:hidden; background:rgba(255,255,255,.04); aspect-ratio:16/9; display:grid; place-items:center;">
+            <div class="muted">Предпросмотр</div>
+          </div>
+        </div>
+        <div class="col card">
+          <div><b>Статус:</b> <span id="dbg-status" class="muted">—</span></div>
+          <div><b>URL финальный:</b> <span id="dbg-final" class="muted">—</span></div>
+          <div><b>Время:</b> <span id="dbg-time" class="muted">—</span></div>
+          <div><b>Контент‑тип:</b> <span id="dbg-ct" class="muted">—</span></div>
+          <div><b>Размер (текст):</b> <span id="dbg-size" class="muted">—</span></div>
+          <hr/>
+          <div id="dbg-meta" style="white-space:pre-wrap;"></div>
+        </div>
+      </div>
+      <hr/>
+      <div class="col card">
+        <b>Мини‑консоль (только для Safe Preview):</b>
+        <div class="row"><input id="dbg-eval" placeholder="document.title" style="flex:1"/><button id="dbg-run">Run</button></div>
+        <pre id="dbg-log" class="code"></pre>
+      </div>
+    `;
+    const urlIn = container.querySelector('#dbg-url');
+    const statusEl = container.querySelector('#dbg-status');
+    const finalEl = container.querySelector('#dbg-final');
+    const timeEl = container.querySelector('#dbg-time');
+    const ctEl = container.querySelector('#dbg-ct');
+    const sizeEl = container.querySelector('#dbg-size');
+    const metaEl = container.querySelector('#dbg-meta');
+    const frameWrap = container.querySelector('#dbg-frame-wrap');
+    let iframe = null;
+    let lastDocRef = null;
+
+    const toURL=(u)=>{ try{ return new URL(u).href; }catch{ try{ return new URL('https://'+u).href; }catch{ return null; } } };
+    const btnLive = container.querySelector('#dbg-live');
+    const btnSafe = container.querySelector('#dbg-safe');
+    const btnAnalyze = container.querySelector('#dbg-analyze');
+    const btnProxy = container.querySelector('#dbg-proxy');
+    const btnClear = container.querySelector('#dbg-clear');
+
+    btnClear.onclick = ()=>{ frameWrap.innerHTML = '<div class="muted">Предпросмотр</div>'; metaEl.textContent=''; statusEl.textContent=finalEl.textContent=timeEl.textContent=ctEl.textContent=sizeEl.textContent='—'; lastDocRef=null; };
+
+    btnLive.onclick = ()=>{
+      const u = toURL(urlIn.value.trim()); if(!u) return toast('Неверный URL');
+      frameWrap.innerHTML=''; iframe=document.createElement('iframe');
+      iframe.style.width='100%'; iframe.style.height='100%'; iframe.style.border='0';
+      iframe.sandbox='allow-scripts allow-forms allow-pointer-lock allow-popups allow-modals allow-top-navigation-by-user-activation';
+      iframe.src=u; frameWrap.appendChild(iframe);
+      toast('Live загружен (DOM недоступен из-за CORS)');
+    };
+
+    btnSafe.onclick = async ()=>{
+      const u = toURL(urlIn.value.trim()); if(!u) return toast('Неверный URL');
+      const { ok, text } = await safeFetchHtml(u);
+      if(!ok){ toast('Не удалось загрузить (CORS). Попробуй Proxy fetch.'); return; }
+      const html = sanitizeHtml(addBase(text, u));
+      frameWrap.innerHTML=''; iframe=document.createElement('iframe');
+      iframe.style.width='100%'; iframe.style.height='100%'; iframe.style.border='0';
+      iframe.sandbox='allow-same-origin';
+      iframe.srcdoc=html; frameWrap.appendChild(iframe);
+      lastDocRef = iframe;
+      toast('Safe preview готов. Консоль доступна.');
+    };
+
+    btnAnalyze.onclick = ()=> analyze(urlIn.value.trim());
+    btnProxy.onclick = async ()=>{
+      const u = toURL(urlIn.value.trim()); if(!u) return toast('Неверный URL');
+      const proxy = 'https://r.jina.ai/http/' + u.replace(/^https?:\/\//,'');
+      urlIn.value = proxy; analyze(proxy);
+    };
+
+    async function analyze(u){
+      const url = toURL(u); if(!url) return toast('Неверный URL');
+      statusEl.textContent='Загрузка...'; finalEl.textContent='—'; timeEl.textContent='—'; ctEl.textContent='—'; sizeEl.textContent='—'; metaEl.textContent='';
+      const t0 = performance.now();
+      let res, text='', ct=''; let finalUrl=url;
+      try{
+        res = await fetch(url, { redirect:'follow', credentials:'omit' });
+        ct = res.headers.get('content-type') || '';
+        finalUrl = res.url || url;
+        if(/text|json|xml|html/i.test(ct) || res.type === 'basic' || res.type === 'cors'){ text = await res.text(); }
+        statusEl.textContent = `${res.status} ${res.statusText}`;
+      }catch(e){
+        statusEl.textContent = 'Ошибка запроса (CORS/сеть)';
+      }
+      timeEl.textContent = `${Math.round(performance.now()-t0)} ms`;
+      finalEl.textContent = finalUrl;
+      ctEl.textContent = ct || '—';
+      sizeEl.textContent = text ? `${(text.length/1024).toFixed(1)} KB` : '—';
+
+      if(text){
+        const report = inspectHtml(text);
+        metaEl.textContent =
+`Title: ${report.title || '—'}
+Meta description: ${report.description || '—'}
+Viewport: ${report.viewport || '—'}
+Links: ${report.links}
+Scripts: ${report.scripts} (inline: ${report.inlineScripts})
+Images: ${report.images}
+CSS <link>: ${report.cssLinks}
+Hints: ${report.hints.length? '\n- ' + report.hints.join('\n- ') : '—'}`;
+      }else{
+        metaEl.textContent = 'Нет текста ответа (binary/no-cors).';
+      }
+    }
+
+    async function safeFetchHtml(url){
+      try{
+        const r = await fetch(url, { credentials:'omit' });
+        if(!r.ok) return { ok:false };
+        const ct = r.headers.get('content-type')||'';
+        if(!/html|text/i.test(ct)) return { ok:false };
+        const text = await r.text();
+        return { ok:true, text };
+      }catch{ return { ok:false }; }
+    }
+    function addBase(html, url){
+      if (/<base\b/i.test(html)) return html;
+      return html.replace(/<head([^>]*)>/i, (m,attrs)=>`<head${attrs}><base href="${url}">`);
+    }
+    function sanitizeHtml(html){
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi,'')
+        .replace(/\son\w+="[^"]*"/gi,'')
+        .replace(/\son\w+='[^']*'/gi,'')
+        .replace(/\shref\s*=\s*["']javascript:[^"']*["']/gi, ' href="#" ')
+        .replace(/\ssrc\s*=\s*["']javascript:[^"']*["']/gi, ' ');
+    }
+    function inspectHtml(html){
+      try{
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const title = doc.querySelector('title')?.textContent?.trim() || '';
+        const description = doc.querySelector('meta[name="description"]')?.getAttribute('content')||'';
+        const viewport = doc.querySelector('meta[name="viewport"]')?.getAttribute('content')||'';
+        const links = doc.querySelectorAll('a[href]').length;
+        const scripts = doc.querySelectorAll('script').length;
+        const inlineScripts = [...doc.querySelectorAll('script')].filter(s=>!s.src).length;
+        const images = doc.querySelectorAll('img').length;
+        const cssLinks = doc.querySelectorAll('link[rel="stylesheet"]').length;
+        const hints = [];
+        if(!viewport) hints.push('Добавьте meta viewport для мобилок');
+        if(inlineScripts>0) hints.push('Много inline-скриптов — лучше выносить в файлы');
+        if(images>50) hints.push('Много изображений — подумайте о lazy-loading');
+        if(cssLinks>5) hints.push('Много CSS — объедините/отложите критичный CSS');
+        return { title, description, viewport, links, scripts, inlineScripts, images, cssLinks, hints };
+      }catch{
+        return { title:'', description:'', viewport:'', links:0, scripts:0, inlineScripts:0, images:0, cssLinks:0, hints:['Парсинг не удался'] };
+      }
+    }
+
+    const runBtn = container.querySelector('#dbg-run');
+    const evalIn = container.querySelector('#dbg-eval');
+    const log = container.querySelector('#dbg-log');
+    function logLine(t){ log.textContent += String(t) + '\n'; log.scrollTop = log.scrollHeight; }
+    runBtn.onclick = ()=>{
+      try{
+        if(iframe && iframe.contentWindow && lastDocRef===iframe){
+          const res = iframe.contentWindow.eval(evalIn.value);
+          logLine('> ' + evalIn.value);
+          logLine(res === undefined ? 'undefined' : JSON.stringify(res, null, 2));
+        }else{
+          logLine('Консоль доступна только в Safe Preview (srcdoc).');
+        }
+      }catch(e){ logLine('Ошибка: ' + e.message); }
+    };
+
+    return ()=>{};
+  }
+};
+
+/* HTTP Debugger */
+const AppHttp={ id:'httpdbg', name:'HTTP Debugger', icon:'🌐', initialSize:{w:1100,h:740},
+  mount(container){
+    const histKey='httpdbg-history';
+    container.innerHTML=`
+      <h2>HTTP Debugger</h2>
+      <div class="grid" style="grid-template-columns: 2fr 1fr; gap:10px;">
+        <div class="col card">
+          <div class="row">
+            <select id="h-method">
+              <option>GET</option><option>POST</option><option>PUT</option>
+              <option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+            </select>
+            <input id="h-url" placeholder="https://api.example.com/resource" style="flex:1" />
+            <button id="h-send">Send</button>
+            <button id="h-cancel">Cancel</button>
+          </div>
+          <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px; margin-top:8px;">
+            <div class="col">
+              <b>Headers</b>
+              <textarea id="h-headers" placeholder="Content-Type: application/json&#10;X-Token: abc123" style="width:100%; height:120px;"></textarea>
+            </div>
+            <div class="col">
+              <b>Body</b>
+              <textarea id="h-body" placeholder='{"name":"Alice"}' style="width:100%; height:120px;"></textarea>
+            </div>
+          </div>
+          <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px;">
+            <div class="col">
+              <label>Mode
+                <select id="h-mode"><option>cors</option><option>no-cors</option><option>same-origin</option></select>
+              </label>
+            </div>
+            <div class="col">
+              <label>Credentials
+                <select id="h-cred"><option>omit</option><option>same-origin</option><option>include</option></select>
+              </label>
+            </div>
+            <div class="col">
+              <label>Redirect
+                <select id="h-redir"><option>follow</option><option>manual</option><option>error</option></select>
+              </label>
+            </div>
+            <div class="col">
+              <label>Referrer
+                <select id="h-ref"><option value="">auto</option><option>no-referrer</option><option>origin</option><option>strict-origin-when-cross-origin</option></select>
+              </label>
+            </div>
+          </div>
+          <hr/>
+          <div class="row">
+            <button id="h-curl">Copy cURL</button>
+            <button id="h-save">Save request</button>
+            <label style="margin-left:auto"><input type="checkbox" id="h-capture"/> Capture fetch/XHR</label>
+          </div>
+        </div>
+        <div class="col card">
+          <b>History</b>
+          <div id="h-history" style="display:flex; flex-direction:column; gap:6px; max-height:260px; overflow:auto;"></div>
+          <div class="row"><button id="h-clear-hist">Clear</button></div>
+        </div>
+      </div>
+      <hr/>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="col card">
+          <b>Response</b>
+          <div class="row" style="gap:12px;">
+            <div>Status: <span id="h-status" class="muted">—</span></div>
+            <div>Size: <span id="h-size" class="muted">—</span></div>
+            <div>TTFB: <span id="h-ttfb" class="muted">—</span></div>
+            <div>Total: <span id="h-total" class="muted">—</span></div>
+          </div>
+          <div style="margin-top:8px;"><b>Headers</b></div>
+          <pre id="h-res-headers" class="code"></pre>
+        </div>
+        <div class="col card">
+          <b>Body</b>
+          <div class="row">
+            <button id="h-view-pretty">Pretty</button>
+            <button id="h-view-raw">Raw</button>
+            <button id="h-view-preview">Preview (HTML)</button>
+          </div>
+          <pre id="h-res-body" class="code" style="height:300px;"></pre>
+          <div id="h-res-preview" class="card" style="display:none; aspect-ratio:16/9;">
+            <iframe id="h-iframe" sandbox="allow-same-origin" style="width:100%;height:100%;border:0;"></iframe>
+          </div>
+        </div>
+      </div>
+    `;
+    const ui = {
+      m: $('#h-method'), u: $('#h-url'), h: $('#h-headers'), b: $('#h-body'),
+      mode: $('#h-mode'), cred: $('#h-cred'), redir: $('#h-redir'), ref: $('#h-ref'),
+      send: $('#h-send'), cancel: $('#h-cancel'), curl: $('#h-curl'), save: $('#h-save'),
+      cap: $('#h-capture'), hist: $('#h-history'), clearHist: $('#h-clear-hist'),
+      status: $('#h-status'), size: $('#h-size'), ttfb: $('#h-ttfb'), total: $('#h-total'),
+      resH: $('#h-res-headers'), resB: $('#h-res-body'), iframe: $('#h-iframe'),
+      viewPretty: $('#h-view-pretty'), viewRaw: $('#h-view-raw'), viewPreview: $('#h-view-preview'), previewWrap: $('#h-res-preview')
+    };
+
+    let ctrl = null;
+    let captured = false;
+
+    renderHistory();
+
+    ui.send.onclick = () => doSend();
+    ui.cancel.onclick = () => { try{ ctrl && ctrl.abort(); }catch{} toast('Отменено'); };
+    ui.curl.onclick = () => copyCurl();
+    ui.save.onclick = () => { saveHist(); renderHistory(); toast('Сохранено в историю'); };
+    ui.clearHist.onclick = () => { localStorage.removeItem(histKey); renderHistory(); };
+    ui.cap.onchange = () => toggleCapture(ui.cap.checked);
+
+    ui.viewPretty.onclick = () => switchView('pretty');
+    ui.viewRaw.onclick = () => switchView('raw');
+    ui.viewPreview.onclick = () => switchView('preview');
+
+    function parseHeaders(text){
+      const o={}; (text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(l=>{
+        const i=l.indexOf(':'); if(i>0){ const k=l.slice(0,i).trim(); const v=l.slice(i+1).trim(); o[k]=v; }
+      }); return o;
+    }
+    function loadHist(){ try{ return JSON.parse(localStorage.getItem(histKey)||'[]'); }catch{ return []; } }
+    function saveHist(){
+      const item={ m:ui.m.value, u:ui.u.value, h:ui.h.value, b:ui.b.value, mode:ui.mode.value, cred:ui.cred.value, redir:ui.redir.value, ref:ui.ref.value, t: Date.now() };
+      const arr=loadHist(); arr.unshift(item); while(arr.length>50) arr.pop(); localStorage.setItem(histKey, JSON.stringify(arr));
+    }
+    function renderHistory(){
+      const arr=loadHist(); ui.hist.innerHTML='';
+      for(const it of arr){
+        const row=document.createElement('div'); row.className='row'; row.style.justifyContent='space-between';
+        const left=document.createElement('div'); left.innerHTML=`<b>${it.m}</b> <span class="muted">${new URL(it.u, location.href).href}</span>`;
+        const right=document.createElement('div');
+        const bLoad=button('Load'), bDel=button('Del');
+        bLoad.onclick=()=>{ ui.m.value=it.m; ui.u.value=it.u; ui.h.value=it.h; ui.b.value=it.b; ui.mode.value=it.mode||'cors'; ui.cred.value=it.cred||'omit'; ui.redir.value=it.redir||'follow'; ui.ref.value=it.ref||''; };
+        bDel.onclick=()=>{ const all=loadHist().filter(x=>x!==it); localStorage.setItem(histKey, JSON.stringify(all)); renderHistory(); };
+        right.append(bLoad,bDel);
+        row.append(left,right); ui.hist.append(row);
+      }
+    }
+    function switchView(kind){
+      ui.previewWrap.style.display = (kind==='preview') ? '' : 'none';
+      ui.resB.style.display = (kind!=='preview') ? '' : 'none';
+      ui.resB.dataset.mode = kind;
+    }
+    function fmtHeaders(h){ const out=[]; h.forEach((v,k)=>{ out.push(k+': '+v); }); return out.join('\n'); }
+    function toCurl({method,url,headers,body}){
+      const parts=['curl','-X',method,JSON.stringify(url)];
+      Object.entries(headers||{}).forEach(([k,v])=>{ parts.push('-H', JSON.stringify(`${k}: ${v}`)); });
+      if(body && !/^(GET|HEAD)$/i.test(method)){ parts.push('--data-binary', JSON.stringify(body)); }
+      return parts.join(' ');
+    }
+    function copyCurl(){ const opts=prepareRequest(); const cmd=toCurl(opts); navigator.clipboard.writeText(cmd).then(()=>toast('cURL скопирован')); }
+    function prepareRequest(){
+      let url = ui.u.value.trim();
+      try{ url = new URL(url, location.href).href; }catch{}
+      const headers=parseHeaders(ui.h.value);
+      const method=ui.m.value;
+      let body=null; if(!/^(GET|HEAD)$/i.test(method)) body=ui.b.value || null;
+      return { method, url, headers, body };
+    }
+
+    async function doSend(){
+      if(!ui.u.value.trim()) return toast('Укажи URL');
+      try{ ctrl && ctrl.abort(); }catch{} ctrl = new AbortController();
+      const opts=prepareRequest();
+      const init={
+        method: opts.method,
+        headers: opts.headers,
+        body: opts.body,
+        mode: ui.mode.value,
+        credentials: ui.cred.value,
+        redirect: ui.redir.value,
+        referrerPolicy: ui.ref.value || undefined,
+        signal: ctrl.signal
+      };
+
+      const t0 = performance.now(); let tFirst=null, total=null, size=0;
+      ui.status.textContent='…'; ui.size.textContent='—'; ui.ttfb.textContent='—'; ui.total.textContent='—';
+      ui.resH.textContent=''; ui.resB.textContent=''; ui.previewWrap.style.display='none';
+
+      try{
+        const res = await fetch(opts.url, init);
+        ui.status.textContent = `${res.status} ${res.statusText}`;
+        ui.resH.textContent = fmtHeaders(res.headers);
+        const ct = res.headers.get('content-type')||'';
+        const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+        if(reader){
+          const chunks=[];
+          while(true){
+            const {value, done} = await reader.read();
+            if(done){ break; }
+            if(value){ if(tFirst===null) tFirst=performance.now(); size += value.byteLength; chunks.push(value); }
+          }
+          total = performance.now();
+          const blob = new Blob(chunks, { type: ct || 'application/octet-stream' });
+          const text = await blob.text().catch(()=>null);
+          ui.size.textContent = size ? `${(size/1024).toFixed(1)} KB` : '—';
+          ui.ttfb.textContent = tFirst ? `${Math.round(tFirst - t0)} ms` : '—';
+          ui.total.textContent = total ? `${Math.round(total - t0)} ms` : '—';
+          const mode = ui.resB.dataset.mode || 'pretty';
+          if(text!==null){
+            if(mode==='pretty'){ ui.resB.textContent = prettify(text, ct); }
+            else if(mode==='raw'){ ui.resB.textContent = text; }
+            else if(mode==='preview' && /html/i.test(ct)){ ui.previewWrap.style.display=''; ui.iframe.srcdoc = text; ui.resB.style.display='none'; }
+            else { ui.resB.textContent = text; }
+          }else{
+            ui.resB.textContent = '[binary data]';
+          }
+        }else{
+          const text = await res.text();
+          total = performance.now(); size = text.length;
+          ui.size.textContent = size ? `${(size/1024).toFixed(1)} KB` : '—';
+          ui.ttfb.textContent = '—';
+          ui.total.textContent = `${Math.round(total - t0)} ms`;
+          const mode = ui.resB.dataset.mode || 'pretty';
+          if(mode==='preview' && /html/i.test(res.headers.get('content-type')||'')){ ui.previewWrap.style.display=''; ui.iframe.srcdoc = text; ui.resB.style.display='none'; }
+          else { ui.resB.style.display=''; ui.resB.textContent = prettify(text, res.headers.get('content-type')||''); }
+        }
+      }catch(e){
+        ui.status.textContent = 'Ошибка: '+(e.message||e);
+        ui.resB.textContent = String(e);
+      }
+    }
+
+    function prettify(text, ct){
+      try{ if(/json/i.test(ct) || text.trim().startsWith('{') || text.trim().startsWith('[')){ return JSON.stringify(JSON.parse(text), null, 2); } }catch{}
+      return text;
+    }
+
+    // Capture fetch/XHR
+    let origFetch = null, origXHR = null;
+    function toggleCapture(on){
+      if(on && !captured){
+        captured = true;
+        origFetch = window.fetch;
+        window.fetch = async (...args)=>{
+          const t0=performance.now();
+          try{
+            const res = await origFetch(...args);
+            const t1=performance.now();
+            const url = (args[0]?.url) || args[0];
+            logHistory('FETCH', url, res.status, Math.round(t1-t0));
+            return res;
+          }catch(e){
+            const url = (args[0]?.url) || args[0];
+            logHistory('FETCH-ERR', url, 'ERR', 0);
+            throw e;
+          }
+        };
+        origXHR = window.XMLHttpRequest;
+        function X(){ const x=new origXHR(); const t0=performance.now(); const urlHolder={u:''};
+          const _open=x.open; x.open=function(m,u,...rest){ urlHolder.u=u; return _open.call(x,m,u,...rest); };
+          x.addEventListener('loadend', ()=>{ const t1=performance.now(); logHistory('XHR', urlHolder.u, x.status, Math.round(t1-t0)); });
+          return x;
+        }
+        window.XMLHttpRequest = X;
+        toast('Capture включен');
+      }else if(!on && captured){
+        window.fetch = origFetch || window.fetch;
+        window.XMLHttpRequest = origXHR || window.XMLHttpRequest;
+        captured = false;
+        toast('Capture выключен');
+      }
+    }
+    function logHistory(kind, url, status, ms){
+      const it={ m:kind, u:url, h:'', b:'', mode:'', cred:'', redir:'', ref:'', t: Date.now(), status, ms };
+      const arr=loadHist(); arr.unshift(it); while(arr.length>50) arr.pop(); localStorage.setItem(histKey, JSON.stringify(arr)); renderHistory();
+    }
+
+    function button(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+  }
+};
+
+/* PE/DLL/EXE Inspector */
+const AppPE={ id:'pe', name:'PE/DLL Inspector', icon:'🧩', initialSize:{w:1060,h:760},
+  mount(container,ctx){
+    container.innerHTML=`
+      <h2>PE/DLL/EXE Inspector</h2>
+      <div class="row card">
+        <input type="file" id="pe-file" accept=".exe,.dll,application/x-msdownload" />
+        <button id="pe-open-from-fs">Открыть из Файлов...</button>
+        <span class="muted">Анализирует заголовки PE, секции, Imports/Exports. Не исполняет файлы.</span>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="col card"><b>Сводка</b><div id="pe-summary"></div></div>
+        <div class="col card"><b>Секции</b><pre id="pe-sections" class="code"></pre></div>
+      </div>
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+        <div class="col card"><b>Exports</b><pre id="pe-exports" class="code"></pre></div>
+        <div class="col card"><b>Imports</b><pre id="pe-imports" class="code"></pre></div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <b>HEX (первые 256 байт)</b>
+        <pre id="pe-hex" class="code"></pre>
+      </div>
+    `;
+    const fileIn = container.querySelector('#pe-file');
+    const sumEl = container.querySelector('#pe-summary');
+    const secEl = container.querySelector('#pe-sections');
+    const expEl = container.querySelector('#pe-exports');
+    const impEl = container.querySelector('#pe-imports');
+    const hexEl = container.querySelector('#pe-hex');
+
+    fileIn.onchange = async () => {
+      const f = fileIn.files?.[0]; if(!f) return;
+      const buf = await f.arrayBuffer(); runParse(buf, f.name);
+    };
+
+    container.querySelector('#pe-open-from-fs').onclick = async ()=>{
+      const path = prompt('Путь к файлу из Файлов (например, /home/file.exe):','/home/');
+      if(!path) return;
+      const base64 = await fs.readFile(path);
+      if(!base64 || !base64.startsWith('data:')){ toast('Файл не найден или не бинарный'); return; }
+      const buf = await (await fetch(base64)).arrayBuffer();
+      runParse(buf, path.split('/').pop()||'file.exe');
+    };
+
+    function runParse(buf, name){
+      try{
+        const pe = parsePE(buf);
+        sumEl.innerHTML = renderSummary(pe, name);
+        secEl.textContent = renderSections(pe);
+        expEl.textContent = renderExports(pe);
+        impEl.textContent = renderImports(pe);
+        hexEl.textContent = dumpHex(new Uint8Array(buf).slice(0,256));
+      }catch(e){
+        sumEl.innerHTML = `<span class="muted">Ошибка: ${e.message||e}</span>`;
+        secEl.textContent = expEl.textContent = impEl.textContent = hexEl.textContent = '';
+      }
+    }
+
+    function dumpHex(arr){
+      let out=''; for(let i=0;i<arr.length;i+=16){
+        let bytes=''; let ascii='';
+        for(let j=0;j<16;j++){
+          const b=arr[i+j];
+          if(b===undefined){ bytes+='   '; ascii+=' '; }
+          else { bytes+=('0'+b.toString(16)).slice(-2)+' '; ascii+= (b>=32&&b<127)? String.fromCharCode(b):'.'; }
+        }
+        out += hex(i,8)+':  '+bytes+' '+ascii+'\n';
+      }
+      return out;
+    }
+
+    function parsePE(buf){
+      const view = new DataView(buf);
+      const getU8 =(o)=>view.getUint8(o);
+      const getU16=(o)=>view.getUint16(o,true);
+      const getU32=(o)=>view.getUint32(o,true);
+      const getU64=(o)=>{ const lo=getU32(o); const hi=getU32(o+4); return hi*0x100000000 + lo; };
+      const readStr=(off,limit=256)=>{ const a=[]; for(let i=0;i<limit;i++){ const b=getU8(off+i); if(b===0) break; a.push(b); } return new TextDecoder().decode(new Uint8Array(a)); };
+
+      if(getU16(0)!==0x5A4D) throw new Error('Не MZ/PE файл');
+      const e_lfanew = getU32(0x3C);
+      if(getU32(e_lfanew)!==0x00004550) throw new Error('Подпись PE не найдена');
+
+      const coffOff = e_lfanew + 4;
+      const Machine = getU16(coffOff+0);
+      const NumberOfSections = getU16(coffOff+2);
+      const TimeDateStamp = getU32(coffOff+4);
+      const SizeOfOptionalHeader = getU16(coffOff+16);
+      const Characteristics = getU16(coffOff+18);
+
+      const optOff = coffOff + 20;
+      const Magic = getU16(optOff+0); // 0x10b PE32, 0x20b PE32+
+      const is64 = (Magic===0x20b);
+      const AddressOfEntryPoint = getU32(optOff+16);
+      const ImageBase = is64 ? getU64(optOff+24) : getU32(optOff+28);
+      const Subsystem = getU16(optOff+68);
+      const NumberOfRvaAndSizes = is64 ? getU32(optOff+108) : getU32(optOff+92);
+      const DataDirOff = is64 ? optOff+112 : optOff+96;
+
+      const dirs=[]; for(let i=0;i<Math.min(NumberOfRvaAndSizes,16);i++){
+        const va = getU32(DataDirOff + i*8 + 0), sz = getU32(DataDirOff + i*8 + 4);
+        dirs.push({ va, sz });
+      }
+      // Sections
+      const sections=[]; let secOff = optOff + getU16(coffOff+16);
+      for(let i=0;i<NumberOfSections;i++){
+        const name = readStr(secOff + 0, 8);
+        const VirtualSize = getU32(secOff+8);
+        const VirtualAddress = getU32(secOff+12);
+        const SizeOfRawData = getU32(secOff+16);
+        const PointerToRawData = getU32(secOff+20);
+        const Characteristics = getU32(secOff+36);
+        sections.push({ name, VirtualSize, VirtualAddress, SizeOfRawData, PointerToRawData, Characteristics });
+        secOff += 40;
+      }
+      function rva2off(rva){
+        for(const s of sections){
+          const start=s.VirtualAddress;
+          const end = s.VirtualAddress + Math.max(s.SizeOfRawData, s.VirtualSize);
+          if(rva>=start && rva<end){ return s.PointerToRawData + (rva - s.VirtualAddress); }
+        }
+        return 0;
+      }
+
+      // Exports
+      let exports=[];
+      if(dirs[0]?.va){
+        const expDirOff = rva2off(dirs[0].va);
+        if(expDirOff){
+          const NumberOfNames = getU32(expDirOff + 24);
+          const AddressOfFunctions = getU32(expDirOff + 28);
+          const AddressOfNames = getU32(expDirOff + 32);
+          const AddressOfNameOrdinals = getU32(expDirOff + 36);
+          const names = [];
+          for(let i=0;i<NumberOfNames;i++){
+            const nameRva = getU32(rva2off(AddressOfNames) + i*4);
+            const off = rva2off(nameRva);
+            const nm = readStr(off, 256);
+            const ord = (new DataView(buf)).getUint16(rva2off(AddressOfNameOrdinals) + i*2, true);
+            const funcRva = getU32(rva2off(AddressOfFunctions) + ord*4);
+            names.push({ name:nm, ordinal: ord, rva: funcRva });
+          }
+          exports = names;
+        }
+      }
+
+      // Imports
+      const imports={};
+      if(dirs[1]?.va){
+        let impOff = rva2off(dirs[1].va);
+        if(impOff){
+          while(true){
+            const OriginalFirstThunk = (new DataView(buf)).getUint32(impOff + 0, true);
+            const NameRva = (new DataView(buf)).getUint32(impOff + 12, true);
+            const FirstThunk = (new DataView(buf)).getUint32(impOff + 16, true);
+            if(OriginalFirstThunk===0 && NameRva===0 && FirstThunk===0) break;
+            const dllName = readStr(rva2off(NameRva), 256);
+            const arr=[];
+            let thunkRva = OriginalFirstThunk || FirstThunk;
+            let thunkOff = rva2off(thunkRva);
+            const step = is64 ? 8 : 4;
+            for(let i=0;i<100000;i++){
+              const val = (new DataView(buf)).getUint32(thunkOff, true);
+              if(val===0) break;
+              const isOrdinal = (val & 0x80000000) !== 0;
+              if(isOrdinal){ const ord = (val & 0xFFFF); arr.push({ ordinal: ord }); }
+              else{
+                const nameOff = rva2off(val);
+                const hint = (new DataView(buf)).getUint16(nameOff, true);
+                const nm = readStr(nameOff+2, 256);
+                arr.push({ name:nm, hint });
+              }
+              thunkOff += step;
+            }
+            imports[dllName]=arr;
+            impOff += 20;
+          }
+        }
+      }
+
+      const machines = { 0x014C:'Intel 386', 0x8664:'x64', 0x01C0:'ARM',0x01C4:'ARMv7',0xAA64:'ARM64' };
+      const subs = { 2:'Windows GUI', 3:'Windows CUI' };
+      const isDLL = !!(Characteristics & 0x2000);
+
+      return { Machine, MachineName: machines[Machine]||('0x'+Machine.toString(16)), NumberOfSections, TimeDateStamp, Characteristics, isDLL,
+        Magic, is64, AddressOfEntryPoint, ImageBase, Subsystem, SubsystemName: subs[Subsystem]||Subsystem, sections, dirs, exports, imports };
+    }
+
+    function renderSummary(pe, name){
+      const time = pe.TimeDateStamp ? new Date(pe.TimeDateStamp*1000).toISOString() : '—';
+      return `
+        <div class="grid" style="grid-template-columns:1fr 1fr;">
+          <div class="col">
+            <div><b>Файл:</b> ${name}</div>
+            <div><b>Тип:</b> ${pe.isDLL? 'DLL' : 'EXE'}</div>
+            <div><b>Архитектура:</b> ${pe.MachineName} (${hex(pe.Machine,4)})</div>
+            <div><b>Формат:</b> ${pe.is64? 'PE32+' : 'PE32'} (${hex(pe.Magic,4)})</div>
+            <div><b>Subsystem:</b> ${subsName(pe.Subsystem)}</div>
+          </div>
+          <div class="col">
+            <div><b>ImageBase:</b> 0x${pe.ImageBase.toString(16).toUpperCase()}</div>
+            <div><b>EntryPoint (RVA):</b> 0x${hex(pe.AddressOfEntryPoint,8)}</div>
+            <div><b>Секций:</b> ${pe.NumberOfSections}</div>
+            <div><b>Compiled:</b> ${time}</div>
+          </div>
+        </div>
+      `;
+      function subsName(s){ const map={2:'Windows GUI',3:'Windows CUI'}; return map[s]||s; }
+    }
+    function renderSections(pe){
+      const rows = pe.sections.map(s=>`${s.name.padEnd(8,' ')}  RVA=0x${hex(s.VirtualAddress,8)}  Raw=0x${hex(s.PointerToRawData,8)}  SizeRaw=${hex(s.SizeOfRawData,8)}  SizeVirt=${hex(s.VirtualSize,8)}  Char=${hex(s.Characteristics,8)}`);
+      return rows.join('\n');
+    }
+    function renderExports(pe){
+      if(!pe.exports || pe.exports.length===0) return '(нет)';
+      return pe.exports.map(e=>`${e.name} (${e.ordinal})  RVA=0x${hex(e.rva,8)}`).join('\n');
+    }
+    function renderImports(pe){
+      const out=[];
+      for(const dll of Object.keys(pe.imports||{})){
+        out.push('['+dll+']');
+        for(const f of pe.imports[dll]){
+          if(f.name) out.push('  '+f.name + (f.hint!==undefined? ` (hint ${f.hint})` : ''));
+          else out.push('  ordinal#'+f.ordinal);
+        }
+      }
+      return out.join('\n') || '(нет)';
+    }
+  }
+};
+
+/* EXE Runner (DOS via js-dos) */
+const AppExe={ id:'exe', name:'EXE Runner (DOS)', icon:'💾', initialSize:{w:980,h:700},
+  mount(container){
+    container.innerHTML=`
+      <h2>EXE Runner (DOS)</h2>
+      <div class="card">
+        <div class="muted">Запускает DOS‑.exe через эмулятор js‑dos. Нативные Windows .exe/.dll запустить в браузере нельзя.</div>
+        <div class="row" style="margin-top:8px;">
+          <button id="x-load">Загрузить эмулятор</button>
+          <input type="file" id="x-zip" accept=".zip,application/zip" />
+          <input id="x-cmd" placeholder="RUNME.EXE" value="" style="flex:1" />
+          <button id="x-run">Run ZIP</button>
+        </div>
+      </div>
+      <div id="x-box" class="card" style="margin-top:10px; height:520px; display:grid; place-items:center;">
+        <div class="muted">Эмулятор не загружен</div>
+      </div>
+      <div class="muted" style="margin-top:6px;">Нужен интернет для загрузки js‑dos с CDN. Загружайте ZIP с файлами и указывайте стартовую команду (GAME.EXE).</div>
+    `;
+    const btnLoad=$('#x-load'), inZip=$('#x-zip'), inCmd=$('#x-cmd'), btnRun=$('#x-run'), box=$('#x-box');
+    let dosReady=false, ci=null;
+
+    btnLoad.onclick = async ()=>{
+      try{
+        await loadScript('https://v8.js-dos.com/latest/js-dos.js');
+        dosReady=true;
+        box.innerHTML='<div class="muted">Готово. Загрузите ZIP и нажмите Run ZIP.</div>';
+        toast('js-dos загружен');
+      }catch(e){ toast('Не удалось загрузить эмулятор'); }
+    };
+    btnRun.onclick = async ()=>{
+      if(!dosReady){ toast('Сначала загрузите эмулятор'); return; }
+      const file = inZip.files?.[0]; if(!file){ toast('Выберите ZIP'); return; }
+      const cmd = inCmd.value.trim() || 'DIR';
+      box.innerHTML='';
+      try{
+        ci = await window.Dos(box, { wdosboxUrl: 'https://v8.js-dos.com/latest/wdosbox.js' });
+        const fs = await ci.fs();
+        await fs.extract(file);
+        await ci.main(['-c', cmd]);
+      }catch(e){
+        box.innerHTML='<div class="muted">Ошибка запуска</div>';
+        console.error(e);
+        toast('Ошибка запуска (см. консоль)');
+      }
+    };
+
+    function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=rej; document.head.appendChild(s); }); }
+
+    return ()=>{ try{ ci && ci.exit(); }catch{} };
+  }
+};
+
+/* YouTube */
+const AppYT={ id:'youtube', name:'YouTube', icon:'▶️', initialSize:{w:980,h:640},
+  async mount(container){
+    if(location.protocol==='file:'){ const warn=document.createElement('div'); warn.textContent='YouTube IFrame API требует http/https. Запусти http://localhost.'; container.appendChild(warn); }
+    const wrap=document.createElement('div'); wrap.style.display='grid'; wrap.style.gridTemplateColumns='2fr 1fr'; wrap.style.gap='12px'; container.appendChild(wrap);
+    const left=document.createElement('div'), right=document.createElement('div'); wrap.append(left,right);
+    const controls=row(); const prev=btn('⏮'), play=btn('⏯'), next=btn('⏭'), openYT=btn('YouTube'), copy=btn('Ссылка'), test=btn('Тест');
+    const sbLbl=document.createElement('label'); const sb=document.createElement('input'); sb.type='checkbox'; sbLbl.append(sb,document.createTextNode(' SponsorBlock'));
+    const quality=document.createElement('select'); quality.innerHTML='<option value="auto">Auto</option><option value="hd720">720p</option><option value="hd1080">1080p</option>';
+    controls.append(prev,play,next,openYT,copy,test,sbLbl,quality); left.appendChild(controls);
+    const playerBox=document.createElement('div'); const playerContainer=document.createElement('div'); playerBox.appendChild(playerContainer); left.appendChild(playerBox); left.appendChild(document.createElement('hr'));
+    const sWrap=row(); sWrap.style.gap='8px'; const input=document.createElement('input'); input.placeholder='Поиск видео...'; input.style.flex='1';
+    const find=btn('Искать'); sWrap.append(input, find); left.appendChild(sWrap);
+    const results=document.createElement('div'); results.style.display='flex'; results.style.flexDirection='column'; results.style.gap='8px'; left.appendChild(results);
+    const qTitle=document.createElement('h3'); qTitle.textContent='Очередь'; const queue=document.createElement('div'); queue.style.display='flex'; queue.style.flexDirection='column'; queue.style.gap='6px';
+    right.append(qTitle, queue);
+
+    const TEST='dQw4w9WgXcQ';
+    function fetchWithTimeout(url,ms=8000){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms); return fetch(url,{signal:c.signal}).finally(()=>clearTimeout(t)); }
+    async function pipedSearch(q, bases){ const PIPED=PIPED_DEFAULTS; const errs=[]; const order=[...(bases||[]),...PIPED.filter(x=>!bases||!bases.includes(x))]; for(const base of order){ try{ const r=await fetchWithTimeout(`${base}/api/v1/search?q=${encodeURIComponent(q)}`, 8000); if(r.ok) return { base, data:await r.json() }; errs.push({base,status:r.status}); }catch(e){ errs.push({base,e:String(e)});} } throw new Error('Все Piped инстансы недоступны: '+JSON.stringify(errs.slice(0,2))); }
+    function loadYT(){ return new Promise(res=>{ if(window.YT&&window.YT.Player) return res(window.YT); const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); window.onYouTubeIframeAPIReady=()=>res(window.YT); }); }
+    async function fetchSponsorSegments(id){ try{ const r=await fetch(`https://sponsor.ajay.app/api/skipSegments?videoID=${id}`); if(!r.ok) return []; return await r.json(); }catch{ return []; } }
+
+    class YTPlayer{
+      constructor(container){ this.c=container; this.q=[]; this.i=-1; this.sponsor=false; this.seg=[]; this.poll=null; this.player=null; }
+      async init(){
+        const YT=await loadYT(); const div=document.createElement('div'); this.c.appendChild(div);
+        this.player=new YT.Player(div,{ height:'360',width:'640',host:'https://www.youtube-nocookie.com', playerVars:{autoplay:0,controls:1,modestbranding:1,rel:0,origin: (location.origin?.startsWith('http')?location.origin:undefined)}, events:{ onStateChange:(ev)=>{ if(ev.data===YT.PlayerState.PLAYING) this.startSB(); else this.stopSB(); } } });
+      }
+      toggle(){ try{ const st=this.player.getPlayerState(); if(st===1) this.player.pauseVideo(); else this.player.playVideo(); }catch{} }
+      async playId(id){
+        if(!this.player) return; let i=this.q.indexOf(id);
+        if(i<0){ this.q.push(id); i=this.q.length-1; } this.i=i; this.player.loadVideoById(id); this.seg=await fetchSponsorSegments(id);
+        if('mediaSession' in navigator){ try{
+          navigator.mediaSession.metadata=new MediaMetadata({title:`YouTube: ${id}`});
+          navigator.mediaSession.setActionHandler('nexttrack',()=>this.next());
+          navigator.mediaSession.setActionHandler('previoustrack',()=>this.prev());
+          navigator.mediaSession.setActionHandler('play',()=>this.player.playVideo());
+          navigator.mediaSession.setActionHandler('pause',()=>this.player.pauseVideo());
+        }catch{} }
+      }
+      enqueue(id){ this.q.push(id); if(this.i===-1){ this.i=0; this.playId(id); } }
+      list(){ return this.q.slice(); }
+      next(){ if(!this.q.length) return; this.i=(this.i+1)%this.q.length; this.playId(this.q[this.i]); }
+      prev(){ if(!this.q.length) return; this.i=(this.i-1+this.q.length)%this.q.length; this.playId(this.q[this.i]); }
+      setQuality(q){ if(!this.player) return; if(q==='auto') this.player.setPlaybackQuality('default'); else this.player.setPlaybackQuality(q); }
+      openYT(){ const id=this.q[this.i]; if(!id) return; window.open(`https://www.youtube.com/watch?v=${id}`,'_blank'); }
+      copyLink(){ const id=this.q[this.i]; if(!id) return; navigator.clipboard.writeText(`https://www.youtube.com/watch?v=${id}`); toast('Ссылка скопирована'); }
+      setSB(v){ this.sponsor=v; }
+      startSB(){ this.stopSB(); this.poll=setInterval(()=>{ if(!this.sponsor||!this.player) return; const t=this.player.getCurrentTime?.()||0; for(const s of this.seg){ const[a,b]=s.segment; if(t>=a&&t<b){ this.player.seekTo(b,true); break; } } },500); }
+      stopSB(){ if(this.poll){ clearInterval(this.poll); this.poll=null; } }
+    }
+
+    const player=new YTPlayer(playerContainer); await player.init();
+    prev.onclick=()=>player.prev(); play.onclick=()=>player.toggle(); next.onclick=()=>player.next();
+    openYT.onclick=()=>player.openYT(); copy.onclick=()=>player.copyLink(); test.onclick=()=>player.playId(TEST);
+    sb.onchange=()=>player.setSB(sb.checked); quality.onchange=()=>player.setQuality(quality.value);
+
+    const pref=loadTheme().pipedBase||PIPED_DEFAULTS[0]; const bases=[pref,...PIPED_DEFAULTS.filter(x=>x!==pref)];
+    async function doSearch(q){
+      if(!q) return;
+      results.textContent='Поиск...';
+      try{
+        const {base,data}=await pipedSearch(q,bases);
+        console.log('[Piped] using:',base);
+        results.innerHTML='';
+        (data.items||data).filter(it=>(it?.type||'video')==='video').slice(0,24).forEach(it=>{
+          const url=(it.url||'');
+          const id=(it.videoId)||url.replace(/^https?:\/\/[^/]+/,'').replace(/^\/watch\?v=/,'').replace('/watch?v=','');
+          if(!id) return;
+          const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='140px 1fr auto'; row.style.gap='8px'; row.style.alignItems='center';
+          row.innerHTML=`<img src="${it.thumbnail||it.thumbnailUrl||''}" alt="" style="width:140px;height:78px;object-fit:cover;border-radius:10px;border:1px solid var(--border)"/><div><div style="font-weight:600">${it.title||'Без названия'}</div><div class="muted">${it.uploaderName||it.uploader||''}</div></div>`;
+          const add=btn('▶ В очередь'); add.onclick=()=>{ player.enqueue(id); refreshQ(); }; row.appendChild(add); results.appendChild(row);
+        });
+      }catch(e){ results.textContent=e?.message||String(e); }
+    }
+    find.onclick=()=>doSearch(input.value.trim());
+    input.onkeydown=e=>{ if(e.key==='Enter') doSearch(input.value.trim()); };
+
+    function refreshQ(){
+      queue.innerHTML=''; player.list().forEach(id=>{
+        const row=document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between';
+        row.innerHTML=`<div>${id}</div>`;
+        const b=btn('Играть'); b.onclick=()=>player.playId(id); row.appendChild(b); queue.appendChild(row);
+      });
+    }
+    function btn(t){ const b=document.createElement('button'); b.textContent=t; return b; }
+    function row(){ const d=document.createElement('div'); d.className='row'; return d; }
+  }
+};
+
+/* ===== Boot ===== */
+applyTheme(Object.assign({ theme:'deepblue', blur:18, accent:'#5f8dff', wallpaper:'aurora' }, loadTheme()));
+setWallpaper(loadTheme().wallpaper || 'aurora');
+
+const layer=$('#window-layer'); const wm=new WindowManager(layer);
+system.bus = wm.bus;
+startMetrics();
+
+const host=new AppHost(opts=>wm.open(opts), system);
+host.register(AppYT); host.register(AppFiles); host.register(AppEditor); host.register(AppGallery); host.register(AppAudio);
+host.register(AppPaint); host.register(AppNotes); host.register(AppSettings); host.register(AppTaskMgr); host.register(AppDebugger);
+host.register(AppHttp); host.register(AppPE); host.register(AppExe);
+
+/* Desktop icons — ОДИН клик + dblclick + клавиатура */
+const iconsRoot=$('#icons');
+const APPS=[
+  { id:'youtube',  name:'YouTube',        icon:'▶️' },
+  { id:'httpdbg',  name:'HTTP Debugger',  icon:'🌐' },
+  { id:'debugger', name:'Отладчик сайтов',icon:'🛠️' },
+  { id:'files',    name:'Файлы',          icon:'📁' },
+  { id:'editor',   name:'Редактор',       icon:'✏️' },
+  { id:'gallery',  name:'Галерея',        icon:'🖼️' },
+  { id:'audio',    name:'Аудио',          icon:'🎵' },
+  { id:'paint',    name:'Paint',          icon:'🎨' },
+  { id:'pe',       name:'PE/DLL Inspector',icon:'🧩' },
+  { id:'exe',      name:'EXE Runner (DOS)',icon:'💾' },
+  { id:'taskmgr',  name:'Диспетчер',      icon:'📊' },
+  { id:'notes',    name:'Заметки',        icon:'📝' },
+  { id:'settings', name:'Настройки',      icon:'⚙️' },
+  { id:'about',    name:'О системе',      icon:'ℹ️' }
+];
+function debounceOnce(fn, ms = 200){ let t=0; return (...a)=>{ const n=performance.now(); if(n-t<ms) return; t=n; fn(...a); }; }
+for(const app of APPS){
+  const el=document.createElement('div'); el.className='icon';
+  const glyph=document.createElement('div'); glyph.className='glyph'; glyph.textContent=app.icon;
+  const label=document.createElement('div'); label.className='label'; label.textContent=app.name;
+  el.append(glyph,label);
+  el.tabIndex=0;
+  const trigger=debounceOnce(()=>host.open(app.id), 200);
+  el.addEventListener('click', trigger);
+  el.addEventListener('dblclick', e=>{ e.preventDefault(); trigger(); });
+  el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); trigger(); } });
+  iconsRoot.appendChild(el);
+}
+
+/* Dock launchers + tasks */
+const dock=new Dock($('#dock'), wm, (id)=>host.open(id));
+dock.setLaunchers([
+  { id:'youtube', icon:'▶️', name:'YouTube' },
+  { id:'httpdbg', icon:'🌐', name:'HTTP' },
+  { id:'debugger', icon:'🛠️', name:'Site' },
+  { id:'pe', icon:'🧩', name:'PE' },
+  { id:'exe', icon:'💾', name:'EXE' },
+  { id:'taskmgr', icon:'📊', name:'Tasks' },
+  { id:'files', icon:'📁', name:'Files' },
+  { id:'settings', icon:'⚙️', name:'Settings' }
+]);
+
+/* Авто-открыть About при старте */
+setTimeout(()=>{ try{ host.open('about'); }catch{} },60);
+
+})();</script>
 </body>
 </html>
